@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ensure Package Info"
+  short_description: "Adds @NullMarked package-info.java to Java packages."
+  default_prompt: "Use $ensure-package-info to add missing package-info.java files for every Java package."
