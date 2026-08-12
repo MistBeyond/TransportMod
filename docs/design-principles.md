@@ -53,9 +53,20 @@ section stays short by design; the rationale lives here.
   without warning.
 - **How to apply**: One feature calls another only through its public interfaces or entry points. Never import another
   feature's `impl` package or internal helpers.
-- **Example**: `integration` (Jade, JEI) consumes feature public APIs instead of feature internals.
+- **Example**: `integration` (Jade, JEI, KubeJS) consumes feature public APIs instead of feature internals.
 - **When to break**: In normal cases this is not broken. If a feature needs another feature's internal behavior, extract
   the shared logic into `core`/`util` or upgrade it into a public API first.
+
+## 6. External integrations live in `integration`
+
+- **Why**: Addon and third-party APIs have their own lifecycles and optional loading rules; isolating them prevents
+  feature code from depending on optional mods.
+- **How to apply**: JEI, Jade, KubeJS, and all other external mod or addon integration content goes under `integration`.
+  Do not create top-level addon packages outside it.
+- **Example**: KubeJS plugin code lives under `integration.kubejs`, consumes public feature APIs, and never depends on
+  feature internals.
+- **When to break**: Do not break this for new code. If integration logic becomes shared, extract it into `core`/`util`
+  or upgrade it into a public feature API first.
 
 ## Known debt
 

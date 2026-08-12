@@ -23,7 +23,9 @@
 
 ## Workflow
 
-1. **Before modification**: Read code and documentation, understand existing features and interfaces, make a plan.
+1. **Before modification**: Read `docs/roadmap.md` to determine implementation order (roadmap defines code
+   implementation order, not gameplay phase order). Then read relevant code and documentation, understand existing
+   features and interfaces, make a plan.
 2. **Respect architecture decisions**: For structural changes (new packages, moving or extracting classes, changing
    dependency direction), consult `docs/architecture.md` first. If a placement is not documented there, ask the user for
    the intended package/design and record the decision after confirmation.
@@ -45,6 +47,8 @@
 4. **Prefer immutable data and explicit JSpecify nullability**: Avoid null literals and shared mutable state in new
    code.
 5. **Cross-feature access goes through public APIs**: Never reach into another feature's internals.
+6. **External integrations live in `integration`**: JEI, Jade, KubeJS, and any other addon or third-party mod
+   integration belongs under `integration`; do not create top-level addon packages outside it.
 
 Detailed rationale, examples, and exception criteria: `docs/design-principles.md`.
 
