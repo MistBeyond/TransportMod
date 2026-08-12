@@ -1,29 +1,31 @@
 # Design Principles
 
 This document explains the project-specific design principles referenced from `AGENTS.md`. They guide new code and
-refactoring; read this document when a design decision is ambiguous or an exception seems justified. The AGENTS.md
+refactoring; read this document when a design decision is ambiguous or an exception seems justified. The `AGENTS.md`
 section stays short by design; the rationale lives here.
 
-## 1. Public APIs are interfaces
+## 1. Contracts live in `api`, `core` carries gameplay, `internal` is a placeholder for implementation details
 
-- **Why**: Callers depend on contracts instead of concrete classes, which keeps implementations swappable and makes
-  behavior easier to test and mock.
-- **How to apply**: New cross-package public APIs are interfaces. Implementation classes live in an `impl` subpackage
-  and stay package-private where possible.
-- **Example**:  Registration contracts come from the external `registry-lib` library (`com.mistbeyond.registry` with its
-  `impl` subpackage).
-- **When to break**: Framework integration requires concrete types, for example blocks, items, and block entities must
-  subclass NeoForge/Minecraft classes. Single-consumer internal helpers may remain plain classes.
+- **Why**: Stable contracts should not be tied to implementation details, and `core` should own the gameplay/domain
+  layer directly rather than being a thin wrapper.
+- **How to apply**: `api.<feature>` defines interfaces, records, and enums. `core.<feature>` contains gameplay and
+  business rules, services, state machines, feature public entry points, lifecycle logic, and `api` implementations.
+  `internal.<feature>` is a minimal placeholder for implementation details that do not yet fit `core`.
+- **Example**: `api.rail` defines rail contracts; `core.rail` owns rail gameplay and API implementation. Heavy pieces
+  may move to `internal.rail` when code practice shows a clear boundary.
+- **When to break**: Blocks, items, and block entities are framework types and belong to content packages. They may use
+  `core`; `core` must not depend on them. `internal` use can be added when code practice supports it.
 
 ## 2. Dependencies stay acyclic
 
-- **Why**: A stable, one-way dependency direction keeps `core`/`util` reusable, reduces initialization order problems,
-  and makes module boundaries understandable.
-- **How to apply**: Feature packages (`block`, `client`, `config`, `integration`, `inventory`, `item`, `recipe`) may
-  depend on `core`/`util`; `core` must not gain new reverse dependencies on feature internals.
-- **Example**: Feature code imports services from `core`, while `core` does not import feature internals in new code.
-- **When to break**: Do not break this for new code. When touching a known debt file, refactor it instead of widening
-  the reference.
+- **Why**: A stable, one-way dependency direction keeps the architecture understandable and avoids initialization
+  problems.
+- **How to apply**: `api` depends on no project packages. `core` depends on `api`, `config`, and `util`. Content
+  packages are final presentation/consumers and can depend on `core`; `core` must not depend on them. `internal`
+  dependency rules are left open until code practice defines them.
+- **Example**: A rail block calls `core.rail` entry points instead of making `core.rail` depend on `block`.
+- **When to break**: Do not break this for new code. If a cycle is needed, extract shared logic into `api`, `config`, or
+  `util` first.
 
 ## 3. Prefer composition to inheritance
 
@@ -49,25 +51,26 @@ section stays short by design; the rationale lives here.
 
 ## 5. Cross-feature access goes through public APIs
 
-- **Why**: Internal classes change freely; reaching into another feature's internals creates hidden coupling that breaks
-  without warning.
-- **How to apply**: One feature calls another only through its public interfaces or entry points. Never import another
-  feature's `impl` package or internal helpers.
-- **Example**: `integration` (Jade, JEI, KubeJS) consumes feature public APIs instead of feature internals.
-- **When to break**: In normal cases this is not broken. If a feature needs another feature's internal behavior, extract
-  the shared logic into `core`/`util` or upgrade it into a public API first.
+- **Why**: Stable contracts reduce coupling; implementation details should be free to change.
+- **How to apply**: Prefer `api` for cross-feature and external access. Content packages call `core.<feature>` public
+  entry points. Direct `internal` access is allowed when concrete code needs it, but should remain deliberate.
+- **Example**: Integration code reads rail state through `api.rail`; when the contract is not enough, it may use
+  `core.rail`. Direct use of `internal.rail` is evaluated case by case.
+- **When to break**: Framework registration or lifecycle hooks may need direct concrete access. Document these cases
+  and keep them rare.
 
 ## 6. External integrations live in `integration`
 
 - **Why**: Addon and third-party APIs have their own lifecycles and optional loading rules; isolating them prevents
   feature code from depending on optional mods.
-- **How to apply**: JEI, Jade, KubeJS, and all other external mod or addon integration content goes under `integration`.
+- **How to apply**: JEI, Jade, KubeJS, and all other external mod/addon integration content goes under `integration`.
   Do not create top-level addon packages outside it.
-- **Example**: KubeJS plugin code lives under `integration.kubejs`, consumes public feature APIs, and never depends on
-  feature internals.
-- **When to break**: Do not break this for new code. If integration logic becomes shared, extract it into `core`/`util`
-  or upgrade it into a public feature API first.
+- **Example**: KubeJS plugin code lives under `integration.kubejs`. It defaults to `api`, may depend on `core` without
+  registration, and logs rare direct `internal` exceptions.
+- **When to break**: Do not break this for new code. If integration logic becomes shared, extract it into `api` or
+  `core` first.
 
 ## Known debt
 
-Here's nothing.
+`core` is intentionally thick and `internal` is intentionally under-defined. Let implementation practice reveal the
+boundary as the codebase grows.

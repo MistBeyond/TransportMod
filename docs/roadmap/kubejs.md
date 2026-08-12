@@ -1,39 +1,92 @@
 # KubeJS
 
-状态：`next`（占位，内容待讨论）
+Status: `next` (placeholder; content pending)
 
-所属路线图节点：并行轨道，从 Node 0 开始
+Roadmap node: parallel track from Node 0
 
-## 概括
+## Summary
 
-KubeJS 集成与各交通方式同步推进，先开放脚本事件、全局绑定和类型包装，内容注册后置。
+KubeJS integration advances alongside each transport mode. It exposes content registration, property definitions,
+events, and read-only state access.
 
-## 玩法范围
+## Capability Scope
 
-- 脚本可以按需读取车辆、站点、路线和运输状态。
-- 脚本可以响应车辆创建、进站、装卸货等关键状态变化。
-- 后续再讨论是否允许脚本注册自定义车辆或交通部件。
+### Content Registration
 
-## 实现方向
+- Blocks.
+- Items.
+- Trains and vehicles.
+- Freight underframes.
+- Replaceable cargo bodies.
+- Stations.
+- Signals.
+- Track types, including straight, diagonal 45, curves, and curve ramps.
 
-- 所有 KubeJS 相关代码放在 `integration` 下的 KubeJS 子包，不创建顶层 `kubejs` 包。
-- 建立 KubeJS 插件入口，通过 `src/main/resources/kubejs.plugins.txt` 声明插件类。
-- 实现 TransportMod 专属 `KubeJSPlugin`，集中注册绑定、事件组和类型包装。
-- 提供脚本可用的全局绑定，例如读取车辆、站点、路线和运输状态。
-- 提供事件组，覆盖车辆创建、进站、装卸货等关键状态变化。
-- 内容注册能力暂缓，待基础事件与绑定稳定后再讨论。
+### Property Definition
 
-## KubeJS 接入点
+- Speed and acceleration.
+- Capacity and cargo type.
+- Model, texture, and sound.
+- Other definition-level transport properties exposed through `api`.
 
-- 基础工程：插件骨架、插件发现、基础绑定和事件组。
-- 铁路：列车、轨道、站点和装卸货相关事件与绑定。
-- 卡车：不同运力卡车、装卸货和道路运行相关事件与绑定。
-- 无人机：待玩法确认后补充。
-- 水运：待玩法确认后补充。
+### Events
 
-## 待讨论问题
+- Vehicle creation and destruction.
+- Station arrival and departure.
+- Loading and unloading.
+- Signal state changes.
+- Track graph changes.
+- Collision and fault events.
 
-- 脚本访问深度如何控制，是否需要权限或只读视图？
-- 哪些状态变化需要事件，哪些通过查询绑定读取？
-- 是否需要让脚本注册自定义车辆、卡车或交通部件？
-- KubeJS 依赖和版本是否纳入正式构建配置？
+### Read-Only State
+
+- Track graph.
+- Rail sections.
+- Signals.
+- Trains and vehicles.
+- Stations.
+- Freight state.
+- Timetable state.
+
+### Data Extensions
+
+- Recipes.
+- Tags.
+- Language files.
+
+### Not Allowed
+
+- Mutating the live track graph, sections, or dispatch state.
+- Spawning or removing trains.
+- Modifying timetables.
+- Directly writing to internal implementation details.
+
+## Gameplay Scope
+
+- Scripts can read transport state on demand.
+- Scripts can respond to key state changes.
+- Content registration is allowed by scope, but exact KubeJS builders may roll out after the base integration is
+  stable.
+
+## Implementation Direction
+
+- All KubeJS code lives under `integration.kubejs`; no top-level `kubejs` package is created.
+- The plugin entry is declared through `src/main/resources/kubejs.plugins.txt`.
+- TransportMod implements a `KubeJSPlugin` that registers bindings, event groups, type wrappers, and content builders.
+- KubeJS defaults to `api`, may depend on `core` without registration, and logs rare direct `internal` exceptions in
+  code comments and `docs/decisions/README.md`.
+- Scripts can read rail, truck, station, and transport state through public contracts first.
+
+## Integration Points
+
+- Foundation: plugin skeleton, plugin discovery, base bindings, event groups, and builders.
+- Rail: train, track, station, signal, and loading/unloading events and bindings.
+- Truck: capacity and road transport events and bindings.
+- Drone: pending gameplay confirmation.
+- Water: pending gameplay confirmation.
+
+## Open Questions
+
+- Which state changes emit events and which are queried through bindings.
+- How custom content builders are exposed to scripts.
+- Whether the KubeJS dependency and version enter the formal build configuration.

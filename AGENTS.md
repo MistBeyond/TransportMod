@@ -39,16 +39,20 @@
 
 ## Design Principles
 
-1. **Public APIs are interfaces**: Implementations go in `impl` subpackages so callers depend on contracts, not concrete
-   classes.
-2. **Dependencies stay acyclic**: Feature packages may depend on `core`/`util`, but `core` must not gain new reverse
-   dependencies on feature internals (e.g., `item`, `client`, `integration`).
+1. **Contracts live in `api`; `core` carries gameplay**: `api.<feature>` is pure; `core.<feature>` contains gameplay,
+   business rules, services, state machines, public entry points, and `api` implementations. `internal.<feature>` is a
+   minimal implementation-detail placeholder whose boundary is defined by code practice.
+2. **Dependencies stay acyclic**: `api` depends on no project packages. `core` depends on `api`/`config`/`util`.
+   Content packages are final presentation and must not be depended on by `core`. `internal` dependency rules are left
+   open until code practice defines them.
 3. **Prefer composition to inheritance**: Extend framework classes only when NeoForge/Minecraft requires it.
 4. **Prefer immutable data and explicit JSpecify nullability**: Avoid null literals and shared mutable state in new
    code.
-5. **Cross-feature access goes through public APIs**: Never reach into another feature's internals.
+5. **Cross-feature access goes through public APIs**: Prefer `api`; content packages use `core`; direct `internal`
+   access is allowed when concrete code needs it.
 6. **External integrations live in `integration`**: JEI, Jade, KubeJS, and any other addon or third-party mod
-   integration belongs under `integration`; do not create top-level addon packages outside it.
+   integration belongs under `integration`; do not create top-level addon packages outside it. KubeJS defaults to `api`,
+   may use `core`, and logs rare `internal` exceptions.
 
 Detailed rationale, examples, and exception criteria: `docs/design-principles.md`.
 
