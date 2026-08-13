@@ -8,6 +8,9 @@ Parent overview: `docs/roadmap/rail.md`
 
 Stations handle train stopping, cargo loading and unloading, and interaction with the railway network. They are an important boundary for freight gameplay.
 
+For the Graph + Dispatch MVP, station blocks are out of scope. Timetable stops use abstract track graph nodes, as defined
+in `docs/roadmap/rail/runtime-contract.md`.
+
 ## Scope
 
 - Station form and placement.

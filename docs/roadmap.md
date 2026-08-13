@@ -31,7 +31,7 @@
   - 创建主 `@Mod` 入口类，完成 mod 初始化。
   - 整理基础包结构与依赖方向，将通用工程基线写入 `docs/architecture.md`。
   - 在 `integration` 下建立 KubeJS 插件骨架，为后续脚本事件、绑定和类型包装预留接入点。
-  - 补齐基础 datagen、构建验证和测试基线。
+  - 补齐基础 datagen 管线、构建验证和测试基线；模型、语言、标签、配方等默认由 datagen 生成，避免手写模型文件。
 - 最小实现范围：client 和 server 可启动，项目可构建，KubeJS 插件可被发现。
 - 文档：
   - [docs/architecture.md](docs/architecture.md)

@@ -1,41 +1,46 @@
 # Implementation
 
-Status: `planned` (concept notes; detailed specs pending)
+Status: `contract` (implementation notes; Graph + Dispatch runtime contract accepted)
 
 Parent overview: `docs/roadmap/rail.md`
 
 ## Summary
 
-This document records the railway implementation direction, focusing on abstracting track networks, trains, and dispatch logic into testable server-side models.
+This document records the railway implementation direction for the Graph + Dispatch MVP. The binding behavior contract is
+`docs/roadmap/rail/runtime-contract.md`; architecture decisions are recorded in `docs/decisions/README.md`.
 
 ## Confirmed Directions
 
-- `api.rail` contains rail contracts.
-- `core.rail` contains rail gameplay/business logic, public rail entry points, and `api` implementations.
-- `internal.rail` is a reserved implementation-detail location; its exact contents and boundary are defined later by
-  code practice.
+- `api.rail` contains service interfaces, read-only views, ID/request/result records, and stable public enums.
+- `core.rail` contains `RailNetworkManager`, rail gameplay/business logic, public rail entry points, train aggregates,
+  dispatch implementation, and internal domain records such as graph nodes, edges, and sections.
+- `internal.rail` implements graph cache, train aggregate, timetable, and dispatch persistence.
+- `api.rail.graph.TrackGraphSource` adapts world cells to track placements. `core.rail` owns graph collection,
+  connectivity assembly, reachability, validation, and connected-component rebuilds; content packages only map block
+  states to that source.
 - The server owns a track graph model with nodes, edges, sections, signal boundaries, and reservation management.
 - Curve sample-point connections create track graph nodes and may split the original curve edge.
 - Diagonal 45 straight track is treated as ordinary straight track in node, edge, path, and reservation models.
-- Track, signal, and switch changes update the graph and sections in real time.
-- Abstract interfaces are planned for pathfinding, route locking, stepwise reservation, and signal state queries.
+- Track, signal, and switch edits mark graph cache dirty; validation is deferred until a train or player is nearby.
+- Validation covers local tracks plus neighboring sections. A mismatch rebuilds the affected connected component.
+- Abstract interfaces are planned for pathfinding, route locking, stepwise reservation, timetable behavior, and signal
+  state queries.
+- All trains use `core.rail.RailTrainAggregate`; manual and automatic are `RailControlMode` values.
 - Section color preview, debug views, performance work, and tests are planned.
-- KubeJS integration should expose read access through `api.rail`, may use `core.rail`, and logs rare direct
-  `internal.rail` exceptions.
+- KubeJS integration should expose read access through immutable `RailNetworkSnapshot`, may use `core.rail`, and logs rare
+  direct `internal.rail` exceptions.
 
 ## Scope
 
-- Server-authoritative track graph.
+- Server-authoritative track graph owned per `ServerLevel`.
 - Track nodes, edges, sections, and signal boundaries.
-- Pathfinding and reservation abstraction.
-- Real-time graph updates.
+- Pathfinding, timetable, and reservation behavior.
+- Deferred graph validation and connected-component rebuild.
 - `api.rail`, `core.rail`, and `internal.rail` package responsibilities.
-- KubeJS event, binding, and type wrapper integration direction.
-- Performance, testing, and multiplayer consistency.
+- Train aggregate, manual/automatic control modes, and collision/derailment state.
+- KubeJS read-only snapshot access.
 
 ## Open Questions
 
-- How the track network is abstracted into testable logic.
-- How the train entity and aggregate model relationship is settled.
-- Whether the dispatch layer is independent of Minecraft block implementations.
 - At what granularity KubeJS integration points are exposed to scripts.
+- How large connected components should be tested and profiled.

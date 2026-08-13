@@ -1,6 +1,6 @@
 # Rail
 
-Status: `planned` (overview and index; detailed specs pending)
+Status: `contract` (overview and index; Graph + Dispatch runtime contract accepted)
 
 Roadmap node: Node 1 Railway
 
@@ -8,6 +8,9 @@ Roadmap node: Node 1 Railway
 
 Railway is the first complete transport mode, focused on freight while allowing players to control trains. The overall
 design follows Satisfactory and is composed of stations, tracks, trains, and a railway dispatch system.
+
+The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Architecture decisions are recorded in
+`docs/decisions/README.md`.
 
 ## Design Overview
 
@@ -22,7 +25,8 @@ design follows Satisfactory and is composed of stations, tracks, trains, and a r
   in `docs/roadmap/rail/implementation.md`.
 - Signals split connected track into rail sections. Automatic trains use timetable-based pathfinding, lock routes at
   departure, and reserve sections step by step.
-- Manual trains can ignore signals and may collide with automatic trains, causing damage and requiring repair.
+- Manual trains can ignore signals and may collide with automatic trains. Collisions derail all involved trains; the
+  current section stays locked until the derailed train is reset and leaves it.
 - Same-level intersections can form routing nodes; different-height crossings do not connect.
 - Curves and switches use semi-free placement via sampled curve connection points. Diagonal 45 straight track is a
   first-class straight track type with the same status as ordinary straight track; details live in
@@ -34,6 +38,7 @@ design follows Satisfactory and is composed of stations, tracks, trains, and a r
 - Players can sit in the locomotive to drive and can stand on any train part, moving with the train.
 - The implementation direction uses a hybrid model: separate physical entities for presentation plus a server-side
   aggregate train model.
+- All trains use the same server-side aggregate; manual and automatic are control modes, not separate train models.
 - Station form remains open, including single-block, multi-block, track-mounted, and modular stations. Loading and
   unloading belong to the station system.
 
@@ -55,7 +60,8 @@ design follows Satisfactory and is composed of stations, tracks, trains, and a r
 - Block signals and path signals use Satisfactory-like semantics.
 - Automatic trains use timetable-based pathfinding, shortest path with station penalty, locked route, and stepwise
   reservation.
-- Manual trains can ignore signals and may collide, causing damage and requiring repair.
+- Manual trains can ignore signals; collisions derail all involved trains and lock the occupied section until reset and
+  leave.
 - Same-level intersections can form routing nodes; different-height crossings do not connect.
 - Curves and switches use semi-free placement via sampled curve connection points. Diagonal 45 straight track is a
   first-class straight track type with the same status as ordinary straight track; details live in
@@ -68,20 +74,24 @@ design follows Satisfactory and is composed of stations, tracks, trains, and a r
 - Connected or intersecting tracks form rail sections.
 - Dispatch uses block signals, path signals, and autonomous train scheduling.
 - Trains use separate entity presentation while the server keeps an aggregate train model.
+- All trains use one aggregate model; manual and automatic are control modes.
+- Automatic schedules use explicit `ONE_WAY` or `LOOP` types with ordered generic stops.
+- Track edits mark graph cache dirty; validation is deferred until a train or player is nearby and rebuilds the affected
+  connected component.
+- Signal semantics, timetable behavior, collision/derailment, and persistence follow
+  `docs/roadmap/rail/runtime-contract.md`.
 
 ## Open Questions
 
-- Exact signal placement, section splitting, and visualization rules.
-- Exact pathfinding, reservation, and deadlock handling algorithms.
-- How manual collisions and repair flow work in detail.
+- Signal visualization and debug presentation rules.
+- Deadlock avoidance beyond stop-and-wait behavior.
 - Which station form will be used.
 - How real-world track width scales to Minecraft block dimensions.
 - How freight underframes and replaceable cargo bodies connect and swap.
-- How manual driving and autonomous dispatch coexist.
-- Where the abstraction boundaries sit for the track network, dispatch logic, and server model.
 
 ## Subdocument Index
 
+- `docs/roadmap/rail/runtime-contract.md`
 - `docs/roadmap/rail/tracks.md`
 - `docs/roadmap/rail/sections.md`
 - `docs/roadmap/rail/stations.md`

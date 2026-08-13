@@ -8,20 +8,23 @@ section stays short by design; the rationale lives here.
 
 - **Why**: Stable contracts should not be tied to implementation details, and `core` should own the gameplay/domain
   layer directly rather than being a thin wrapper.
-- **How to apply**: `api.<feature>` defines interfaces, records, and enums. `core.<feature>` contains gameplay and
-  business rules, services, state machines, feature public entry points, lifecycle logic, and `api` implementations.
-  `internal.<feature>` is a minimal placeholder for implementation details that do not yet fit `core`.
-- **Example**: `api.rail` defines rail contracts; `core.rail` owns rail gameplay and API implementation. Heavy pieces
-  may move to `internal.rail` when code practice shows a clear boundary.
-- **When to break**: Blocks, items, and block entities are framework types and belong to content packages. They may use
-  `core`; `core` must not depend on them. `internal` use can be added when code practice supports it.
+- **How to apply**: `api.<feature>` defines service interfaces and read-only views. Records are limited to IDs,
+  requests, and result snapshots. Stable public enums are allowed. Domain records such as `RailNode`, `RailEdge`, and
+  `RailSection` live in `core`/`internal`. `core.<feature>` contains gameplay and business rules, services, state
+  machines, feature public entry points, lifecycle logic, and `api` implementations. `internal.<feature>` is a minimal
+  placeholder for implementation details that do not yet fit `core`.
+- **Example**: `api.rail` exposes `RailGraphView`, `DispatchService`, and `RailPathfinder` instead of directly exposing
+  `RailNode`/`RailEdge` records. `core.rail` owns the implementation and graph state.
+- **When to break**: Entities, blocks, items, and block entities are framework types and belong to content packages. They
+  may use `core`; `core` must not depend on them. `internal` use can be added when code practice supports it.
 
 ## 2. Dependencies stay acyclic
 
 - **Why**: A stable, one-way dependency direction keeps the architecture understandable and avoids initialization
   problems.
 - **How to apply**: `api` depends on no project packages. `core` depends on `api`, `config`, and `util`. Content
-  packages are final presentation/consumers and can depend on `core`; `core` must not depend on them. `internal`
+  packages such as `block`, `item`, `entity`, and `client` are final presentation/consumers and can depend on `core`;
+  `core` must not depend on them. `internal`
   dependency rules are left open until code practice defines them.
 - **Example**: A rail block calls `core.rail` entry points instead of making `core.rail` depend on `block`.
 - **When to break**: Do not break this for new code. If a cycle is needed, extract shared logic into `api`, `config`, or
@@ -69,6 +72,13 @@ section stays short by design; the rationale lives here.
   registration, and logs rare direct `internal` exceptions.
 - **When to break**: Do not break this for new code. If integration logic becomes shared, extract it into `api` or
   `core` first.
+
+## 7. Do not use NeoForge `@OnlyIn`
+
+- **Why**: NeoForge does not recommend `@OnlyIn`.
+- **How to apply**: Keep client-only logic in `client` packages and wire it through client lifecycle/entry points.
+  Do not annotate methods with `@OnlyIn`.
+- **When to break**: Do not break this for new code.
 
 ## Known debt
 

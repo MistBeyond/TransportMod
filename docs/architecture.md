@@ -15,19 +15,28 @@ design principles live in `docs/design-principles.md`; this map records where th
 ## General baseline
 
 - `com.mistbeyond.transport` is the main mod root; the `@Mod` entry belongs here and should not contain feature logic.
-- `api` is a pure contract layer. It may use standard Java, JSpecify, and foundational Minecraft/NeoForge types, but it
-  must not depend on any project package.
+- Generated assets such as models, blockstates, language files, tags, recipes, and loot tables are produced through
+  datagen by default. Hand-written model files are not allowed except for custom templates that datagen cannot express.
+- `api` is an interface-first pure contract layer. It may use standard Java, JSpecify, and foundational
+  Minecraft/NeoForge types, but it must not depend on any project package. It contains service interfaces, read-only
+  views, I/O records such as IDs, requests, and results, plus stable public enums. Internal domain records such as
+  `RailNode`, `RailEdge`, and `RailSection` are implementation-layer candidates and should not become public data
+  models unless they are intentional read-only views.
 - `core` is the thick gameplay/domain layer. `core.<feature>` contains gameplay and business rules, services, state
   machines, feature public entry points, lifecycle logic, and `api` implementations. `core` depends on `api`, `config`,
   and `util`, and may use `internal` as implementation practice requires.
+- Track graph collection and reachability are `core.rail` domain concerns. Content packages expose world state through
+  `api.rail.graph.TrackGraphSource`; blocks and items do not own graph construction or reachability searches.
 - `internal` is a minimal implementation-detail container. `internal.<feature>` exists for implementation details that
   do not yet fit `core`. Its exact boundaries and dependency rules will be defined by code practice, not documented in
   advance.
 - `config` is a leaf package. It depends on `api`/`util` and can be used by `core`, content packages, and integration.
-- `block`, `item`, `client`, `inventory`, and `recipe` are final presentation/consumer packages. They can depend on
+- `block`, `item`, `entity`, `client`, `inventory`, and `recipe` are final presentation/consumer packages. They can depend on
   `api`, `core`, `config`, and `util`; direct `internal` use is allowed only when it emerges from concrete code needs.
   `core` must not depend on them.
 - `screen` lives under `client.screen`; it is not a separate top-level package.
+- Do not use NeoForge `@OnlyIn` because NeoForge does not recommend it; client-only code lives under `client` packages
+  and is wired through client entry points.
 - `integration` contains JEI, Jade, KubeJS, and other external mod/addon integration. It can depend on `api`, `core`,
   `config`, `util`, and content packages as needed. Direct `internal` use is decided case by case as code develops.
 - KubeJS defaults to `api`; it can depend on `core` without registration, and direct `internal` usage is rare and must
@@ -40,13 +49,14 @@ design principles live in `docs/design-principles.md`; this map records where th
 | Package                    | Responsibility                                                                                                                    | Belongs here                                                | Does not belong here                                                                       |
 |----------------------------|-----------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|--------------------------------------------------------------------------------------------|
 | `com.mistbeyond.transport` | Main mod entry and initialization                                                                                                 | `@Mod` class and mod lifecycle                              | Individual feature gameplay implementations                                                |
-| `api`                      | Pure cross-feature and external contracts                                                                                         | `api.<feature>` interfaces, records, enums, and value types | Dependencies on project packages                                                           |
-| `core`                     | Thick gameplay/domain layer: business rules, services, state machines, feature public entry, lifecycle, and `api` implementations | `core.<feature>`                                            | Dependencies on `block`, `item`, `client`, `inventory`, `recipe`, or `integration`         |
+| `api`                      | Pure interface-first cross-feature and external contracts                                                                         | `api.<feature>` service interfaces, read-only views, ID/request/result records, stable public enums, `TrackGraphSource` | Dependencies on project packages; internal domain records such as `RailNode`, `RailEdge`, `RailSection`; internal state enums; persistence structures |
+| `core`                     | Thick gameplay/domain layer: business rules, services, state machines, feature public entry, lifecycle, and `api` implementations | `core.<feature>`                                            | Dependencies on `block`, `item`, `entity`, `client`, `inventory`, `recipe`, or `integration` |
 | `internal`                 | Minimal implementation-detail container; exact boundaries to be defined by code practice                                          | `internal.<feature>`                                        | Being treated as a finalized architecture layer or public contract package                 |
-| `config`                   | Mod configuration and user-facing settings; leaf dependency available to core, content, and integration                           | `config` contracts and settings values                      | Dependencies on `block`, `item`, `client`, `inventory`, `recipe`, `core`, or `integration` |
+| `config`                   | Mod configuration and user-facing settings; leaf dependency available to core, content, and integration                           | `config` contracts and settings values                      | Dependencies on `block`, `item`, `entity`, `client`, `inventory`, `recipe`, `core`, or `integration` |
 | `util`                     | Generic helpers without business semantics                                                                                        | Shared utilities                                            | Dependencies on feature internals                                                          |
-| `block`                    | Final Minecraft block content and presentation: block states, block entities, world interaction                                   | Blocks and block entities                                   | Domain and business logic ownership                                                        |
+| `block`                    | Final Minecraft block content and presentation: block states, block entities, world interaction                                   | Blocks, block entities, and world-to-`TrackGraphSource` adaptation | Domain and business logic ownership, graph collection, reachability searches              |
 | `item`                     | Final Minecraft item content and presentation: items, tools, registry-facing types                                                | Items and tools                                             | Domain and network logic ownership                                                         |
+| `entity`                   | Final Minecraft entity content and presentation: entity types, movement/rendering glue                                            | Entities and entity registry types                          | Domain and business logic ownership                                                        |
 | `client`                   | Client rendering, GUI, and screens; `client.screen` subpackage                                                                    | UI and visual concerns                                      | Server-authoritative logic                                                                 |
 | `inventory`                | Inventory and loading/unloading presentation/consumers: slots, cargo interaction, UI hooks                                        | Inventory/cargo UI and content interaction                  | Core domain logic ownership                                                                |
 | `recipe`                   | Recipes and datagen-related helpers: recipe definitions, tags, generated assets                                                   | Recipe definitions and generation                           | Core domain logic ownership                                                                |

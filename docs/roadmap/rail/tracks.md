@@ -1,6 +1,6 @@
 # Tracks
 
-Status: `planned` (concept notes; detailed specs pending)
+Status: `contract` (track rules; Graph + Dispatch runtime contract accepted)
 
 Parent overview: `docs/roadmap/rail.md`
 
@@ -11,6 +11,9 @@ Tracks are the foundation of the railway network. They provide train paths, rail
 ## Confirmed Directions
 
 - Tracks use a server-side track graph for connectivity and pathfinding; world blocks and models provide presentation.
+- Graph ownership, persistence, validation, and rebuild behavior follow `docs/roadmap/rail/runtime-contract.md`.
+- Track edits mark saved graph cache dirty. Validation is deferred until a train or player is nearby; a mismatch rebuilds
+  the affected connected component.
 - Straight track, curves, switches, branches, and intersections are separate conceptual pieces.
 - Curves and switches use semi-free placement.
 - Curve ramps can be curved track segments. They can branch from or merge into a curve sample point.

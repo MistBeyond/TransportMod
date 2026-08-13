@@ -16,8 +16,9 @@
    includes NeoForge version, mod versions (e.g., Jade), etc.
 4. **Do not download anything without user consent**. Show exact actions (e.g., using `gradlew` for dependency
    management) and await approval.
-5. **Avoid hand-writing data files (e.g., models, language files, tags). Prefer datagen or existing vanilla resources;
-   hand-write only as a last resort, such as custom model templates.**
+5. **Do not hand-write generated resource/model files. Generate models, blockstates, language files, tags, recipes,
+   and loot tables through datagen or reuse existing vanilla resources. Hand-writing model files is forbidden by
+   default; custom model templates are the only accepted exception.**
 6. **Do not embed local absolute paths in project files** (e.g., paths to Gradle caches, Maven repositories, or IDE
    settings).
 
