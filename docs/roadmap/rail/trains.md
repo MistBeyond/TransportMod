@@ -18,8 +18,12 @@ server-side aggregate; they differ only in control source.
 - Manual mode is driven by player input; automatic mode is driven by `RailTrainSchedule`.
 - Switching to manual pauses the automatic schedule and releases its route/reservations.
 - Automatic schedules use explicit `ONE_WAY` or `LOOP` types and ordered generic stops.
+- Timetable stops reference `RailStationId`; they do not reference raw track graph nodes.
 - A `LOOP` schedule continues from the first stop after the last stop; a `ONE_WAY` schedule terminates after the last stop.
 - Schedules are persisted, editable while running, and reroute from the nearest reachable node.
+- Loading and unloading install or remove a whole cargo body, excluding the freight underframe.
+- The main mod provides only binary `LOAD` and `UNLOAD` platform operations; simultaneous load/unload is an addon
+  extension point.
 - Collisions derail all involved trains. The current section stays locked until the train is reset and leaves.
 - A player tool resets derailed trains; damage and repair are not planned gameplay.
 

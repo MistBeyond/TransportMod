@@ -18,6 +18,8 @@ Rail sections are the pieces of connected track that signals divide and trains r
   and does not change track geometry.
 - Block signals and path signals use Satisfactory-like semantics.
 - Block signal and path signal state semantics are owned by this document.
+- Player-visible signal state is limited to `RED` and `GREEN`.
+- Complex signal aspects, additional signal types, and custom signal states are addon extension points.
 - A block signal is directional and protects the next section in its facing direction.
 - A path signal is directional and, at a junction entrance, reserves the full conflict path through the junction to the
   chosen exit. The reservation is released after the train exits.

@@ -22,17 +22,33 @@
 6. **Do not embed local absolute paths in project files** (e.g., paths to Gradle caches, Maven repositories, or IDE
    settings).
 
+## Docs Map
+
+Before any design or code change, read the relevant documents under `docs/` as needed. These three documents are the
+primary entry points and must be checked first:
+
+1. `docs/roadmap.md` - Defines code implementation order. It determines what to build first and which roadmap node is
+   current, not gameplay phase order. Read it at the start of each implementation task; node details under
+   `docs/roadmap/` are read on demand from the roadmap.
+2. `docs/architecture.md` - Authoritative architecture map. It records package placement, dependency direction, layer
+   boundaries, and confirmed user architecture rulings. Read it before structural changes such as new packages, moving
+   or extracting classes, or changing dependency direction. If a placement is not documented, ask the user and record
+   the decision.
+3. `docs/design-principles.md` - Full design principles. It explains the rationale, application, and exception criteria
+   behind the `Design Principles` section in this file. Read it when a design decision is ambiguous or an exception
+   seems justified.
+
+Use them together: `roadmap.md` decides what to do and in which order, `architecture.md` decides where code belongs,
+and `design-principles.md` decides how new code should be designed. A specific change may only need one or two of them,
+but do not skip any that apply.
+
 ## Workflow
 
-1. **Before modification**: Read `docs/roadmap.md` to determine implementation order (roadmap defines code
-   implementation order, not gameplay phase order). Then read relevant code and documentation, understand existing
-   features and interfaces, make a plan.
-2. **Respect architecture decisions**: For structural changes (new packages, moving or extracting classes, changing
-   dependency direction), consult `docs/architecture.md` first. If a placement is not documented there, ask the user for
-   the intended package/design and record the decision after confirmation.
-3. **Ensure package nullability**: Every Java package must include a `package-info.java` annotated with `@NullMarked`
+1. **Before modification**: Read the applicable docs listed in `## Docs Map`, then read relevant code and
+   documentation, understand existing features and interfaces, and make a plan.
+2. **Ensure package nullability**: Every Java package must include a `package-info.java` annotated with `@NullMarked`
    (JSpecify). Use `$ensure-package-info` to create any missing files.
-4. **After modification**:
+3. **After modification**:
     - Use IDEA MCP to analyze the project, check for errors, and fix them. Fix warnings where possible; ignore only if
       unavoidable (e.g., fixed Guava version requiring beta graph API).
     - Use IDEA MCP to format code.

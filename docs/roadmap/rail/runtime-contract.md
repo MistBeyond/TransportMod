@@ -18,8 +18,11 @@ with them, this document wins.
 
 Out of scope for this MVP:
 
-- Station blocks, cargo loading/unloading, freight bodies, and station forms.
+- Station and freight platform block implementations, cargo body storage, and station forms.
 - Truck, drone, water transport, and KubeJS content registration.
+
+Station and freight platform gameplay is contracted in this document and required later for the timetable MVP, but is not
+implemented in this documentation-only change.
 
 ## Graph Ownership and Lifecycle
 
@@ -54,6 +57,35 @@ Out of scope for this MVP:
 - The MVP MUST NOT use asynchronous graph mutation. Asynchronous work may produce immutable snapshots only when a later
   ADR explicitly allows it.
 
+## Track Cell Storage, Rendering, Collision, and Occupancy
+
+- `api.rail.graph.TrackCellData` MUST be the read-only view of one track cell's placements and signal placement
+  information.
+- The main track block MUST use one block ID with an 8-direction `direction` BlockState property.
+- A simple cell MUST contain exactly one straight or diagonal 45 placement and no signal. A simple cell MUST NOT have a
+  block entity.
+- A complex cell MUST contain multiple placements, a curve, a curve ramp, a crossing, or a signal. A complex cell MUST
+  have a block entity.
+- `TrackGraphSource` MUST read `TrackCellData`; it MUST check the block entity first and fall back to the BlockState
+  direction when no block entity exists.
+- Simple-to-complex upgrades MUST create the block entity and preserve existing placements. Complex-to-simple downgrades
+  MUST remove the block entity and write the remaining placement back to the BlockState.
+- Complex block entities MUST use standard NBT persistence and update tags. Custom packets MUST NOT be used.
+- `TrackType` MUST include `CURVE` and `CURVE_RAMP` for future track geometry.
+- Datagen MUST generate simple track models for all 8 `direction` values. Complex cells MUST use a block entity renderer
+  that reads `TrackCellData`.
+- Visual models MAY overflow neighboring cells. Visual overflow MUST NOT affect graph logic, collision, or occupancy.
+- Collision shapes MUST be generated from `TrackCellData` and clipped to the owning block's 16x16 bounds.
+- Complex cell collision MUST be the union of all rail collision shapes in that cell.
+- Collision height MUST remain at the current approximate track height of 2 pixels (`0.125` blocks).
+- Trains MUST ignore track collision shapes. Train entities MUST collide with ordinary world blocks, other trains, and
+  other entities through entity AABBs.
+- Each track cell MUST occupy exactly one `World Grid` block slot. Physical occupancy inside that slot MUST equal its
+  collision shape.
+- Track cells MUST NOT support waterlogged states in the main mod.
+- Visual overflow MUST NOT occupy neighboring slots or create neighboring collision.
+- Visual overlap MUST NOT create graph connections; connections MUST come only from explicit `TrackPlacement` entries.
+
 ## Train Aggregate and Control Modes
 
 - All trains use the same `core.rail.RailTrainAggregate` model.
@@ -66,9 +98,21 @@ Out of scope for this MVP:
 ## Timetable
 
 - `RailTrainSchedule` MUST have an explicit `ONE_WAY` or `LOOP` type.
-- Ordered stops are `RailTrainStop` values containing a track node ID plus generic settings for future expansion.
-- The MVP default arrival behavior is: stop at the node, then depart toward the next stop. Per-stop settings may override
-  this later.
+- Ordered stops are `RailTrainStop` values containing a `RailStationId` plus generic stop settings for future expansion.
+- A timetable stop MUST NOT reference a raw track graph node.
+- A station restricts stopping direction: a train MUST stop only while facing the station's stop direction. Other trains
+  MAY pass through in reverse but MUST NOT reverse-stop at the station.
+- A station itself MUST NOT load/unload cargo and MUST NOT provide fuel or other complex station features.
+- A station MAY have a behind-chain of freight platforms or other stations.
+- When a train stops at a station, all freight platforms in that station's behind-chain MUST participate.
+- Each freight platform in the main mod MUST have a binary `LOAD` or `UNLOAD` operation. Loading or unloading installs or
+  removes a whole cargo body, excluding the underframe.
+- The main departure condition MUST be `OPERATION_COMPLETE`: the train departs after all participating freight platforms
+  complete their operations.
+- If a station has no freight platforms behind it, the train MUST stop and then depart.
+- If a freight platform cannot complete its operation, the train MUST wait until the operation can complete.
+- `StationOperation` and `DepartureCondition` MUST be extension points for addons. The main mod registers only
+  `LOAD`/`UNLOAD` and `OPERATION_COMPLETE`.
 - Schedules MUST be started and stopped by the player, and schedule state MUST be persisted.
 - Empty or single-stop schedules MUST be rejected at start.
 - Schedules MUST be editable while running; rerouting MUST project the current position to the nearest reachable node and
@@ -79,6 +123,8 @@ Out of scope for this MVP:
 
 ## Signals and Dispatch
 
+- Player-visible signal state MUST be limited to `RED` and `GREEN`. Complex aspects, additional signal types, and custom
+  signal states are addon extension points.
 - A block signal is directional: it protects the next section in its facing direction.
 - A path signal is directional: at a junction entrance, it reserves the full conflict path through the junction to the
   chosen exit, and the reservation is released after the train exits.
@@ -103,11 +149,17 @@ These names are part of the contract but are not implemented in this documentati
 
 - `api.rail.RailNetworkService`
 - `api.rail.RailNetworkSnapshot`
+- `api.rail.graph.TrackCellData`
 - `api.rail.dispatch.RailTrainSchedule`
 - `api.rail.dispatch.RailTrainStop`
 - `api.rail.dispatch.RailControlMode`
+- `api.rail.station.RailStationId`
+- `api.rail.station.StationOperation`
+- `api.rail.station.DepartureCondition`
 
 Existing `api.rail.graph.RailGraphView` and `api.rail.dispatch.DispatchService` remain foundations.
+
+`RailTrainStop` contains a `RailStationId` plus generic stop settings. It does not contain a raw graph node ID.
 
 API records are limited to IDs, requests, and result snapshots. Domain records such as graph nodes, edges, sections,
 train aggregates, and persistence structures live in `core.rail` or `internal.rail`.
@@ -125,6 +177,27 @@ train aggregates, and persistence structures live in `core.rail` or `internal.ra
 7. Editing a schedule while running MUST project the train to the nearest node and reroute to the next stop.
 8. KubeJS and other integrations MUST only read immutable `RailNetworkSnapshot`; they MUST NOT mutate graph, sections,
    dispatch, or train state.
+9. Block signals MUST show red when the protected section is occupied and green when it is free.
+10. Path signals MUST reserve the full junction path and release it after the train exits.
+11. A train MUST be allowed to pass through a station in reverse, but MUST NOT reverse-stop at that station.
+12. All freight platforms in a station's behind-chain MUST execute their configured operations; the train departs after
+    all operations complete.
+13. A station without freight platforms MUST stop the train and then depart.
+14. The main mod MUST only provide `LOAD` and `UNLOAD` station operations and the `OPERATION_COMPLETE` departure
+    condition.
+15. If an operation cannot complete, the train MUST wait; after completion, the train continues.
+16. A simple straight or diagonal 45 track cell MUST NOT use a block entity.
+17. A crossing, curve, curve ramp, or signal cell MUST use a block entity.
+18. The graph source MUST read the block entity first and fall back to BlockState direction.
+19. Upgrading or downgrading a track cell MUST preserve existing placement data.
+20. Simple cells MUST use datagen models; complex cells MUST use the block entity renderer.
+21. Track collision MUST exist only inside the owning block's 16x16 bounds.
+22. Complex collision MUST be the union of the cell's rail collision shapes.
+23. A track cell MUST occupy only its own block slot and MUST NOT be waterlogged.
+24. Visual overflow MUST NOT create neighboring occupancy or collision.
+25. Visual overlap MUST NOT create track graph connections.
+26. Train entities MUST ignore track collision but MUST collide with ordinary blocks and other entities.
+27. Reloading a save MUST restore complex block entity data and collision shapes.
 
 ## Related Documents
 

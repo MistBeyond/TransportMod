@@ -16,6 +16,8 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 
 - Tracks use real-world rail models and widths as design references; exact gauge and block scale are still open.
 - Tracks are represented by a server-side track graph for logic plus world blocks and models for presentation.
+- Track cells use `api.rail.graph.TrackCellData` with one block ID. Simple cells use BlockState direction; complex cells
+  use a block entity and block entity renderer.
 - `World Grid` is an abstract term for the interior of each Minecraft block cell. It is not a code type or API type.
   Full definition is inlined in `docs/roadmap/rail/tracks.md` and `docs/roadmap/rail/sections.md`.
 - Track placement supports two modes: enhanced block placement and Satisfactory-like ghost preview placement.
@@ -39,14 +41,14 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 - The implementation direction uses a hybrid model: separate physical entities for presentation plus a server-side
   aggregate train model.
 - All trains use the same server-side aggregate; manual and automatic are control modes, not separate train models.
-- Station form remains open, including single-block, multi-block, track-mounted, and modular stations. Loading and
-  unloading belong to the station system.
+- Stations are one-way timetable stops. A station may have a behind-chain of freight platforms or other stations.
+  Loading and unloading occur only on freight platforms.
 
 ## Subsystems
 
 - Tracks: track models, scale, placement, connectivity, and rail sections.
 - Sections: default connected rail sections and signal-based section splitting.
-- Stations: station form, stopping, and loading/unloading.
+- Stations: station stop direction, freight platform chain, and loading/unloading.
 - Trains: train composition, locomotive, freight underframe, replaceable cargo bodies, and player interaction.
 - Dispatch: rail sections, signals, path signals, and train scheduling.
 - Implementation: server authority, track network abstraction, train aggregate model, dispatch logic layer, and KubeJS
@@ -58,6 +60,7 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 - Tracks use a track graph for logic and world presentation for gameplay.
 - The whole connected track graph forms one default rail section; signals split it into smaller sections.
 - Block signals and path signals use Satisfactory-like semantics.
+- Player-visible signal state is limited to `RED` and `GREEN`; complex signal states are addon extensions.
 - Automatic trains use timetable-based pathfinding, shortest path with station penalty, locked route, and stepwise
   reservation.
 - Manual trains can ignore signals; collisions derail all involved trains and lock the occupied section until reset and
@@ -76,8 +79,13 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 - Trains use separate entity presentation while the server keeps an aggregate train model.
 - All trains use one aggregate model; manual and automatic are control modes.
 - Automatic schedules use explicit `ONE_WAY` or `LOOP` types with ordered generic stops.
+- Timetable stops reference `RailStationId`; station behind-chain freight platforms perform binary `LOAD`/`UNLOAD`.
+- The main departure condition is `OPERATION_COMPLETE`; `StationOperation` and `DepartureCondition` are addon extension
+  points.
 - Track edits mark graph cache dirty; validation is deferred until a train or player is nearby and rebuilds the affected
   connected component.
+- Track cell collision and occupancy are generated from `TrackCellData`, clipped to the owning block, and unioned for
+  complex cells. Visual overflow does not occupy neighboring cells.
 - Signal semantics, timetable behavior, collision/derailment, and persistence follow
   `docs/roadmap/rail/runtime-contract.md`.
 
@@ -85,7 +93,7 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 
 - Signal visualization and debug presentation rules.
 - Deadlock avoidance beyond stop-and-wait behavior.
-- Which station form will be used.
+- Exact station block placement and visual model.
 - How real-world track width scales to Minecraft block dimensions.
 - How freight underframes and replaceable cargo bodies connect and swap.
 

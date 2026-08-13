@@ -15,8 +15,16 @@ and manual driving compatible. Signal state semantics live in `docs/roadmap/rail
 - Pathfinding prefers the shortest path and applies a distance penalty for non-target stations.
 - Routes are locked at departure, but sections are reserved and released step by step.
 - Automatic schedules use explicit `ONE_WAY` or `LOOP` types and ordered generic stops.
+- Timetable stops reference `RailStationId`; they do not reference raw track graph nodes.
 - Schedules are player-started, persisted, editable while running, and reject empty or single-stop lists.
-- The MVP default arrival behavior is stop at the stop node, then depart to the next stop.
+- A train stops at a station only while facing the station's stop direction; reverse passage is allowed.
+- All freight platforms in a station's behind-chain participate in the stop.
+- The main departure condition is `OPERATION_COMPLETE`: the train departs after all participating freight platforms
+  complete.
+- A station without freight platforms stops the train and then departs.
+- If a freight platform cannot complete its operation, the train waits.
+- `StationOperation` and `DepartureCondition` are addon extension points; the main mod provides `LOAD`/`UNLOAD` and
+  `OPERATION_COMPLETE`.
 - When a red signal or reserved section blocks the route, an automatic train stops and waits.
 - When the graph changes, an automatic train reroutes when possible; otherwise it stops and waits.
 - Manual trains may ignore signals and can collide with automatic trains. Collisions derail all involved trains.
