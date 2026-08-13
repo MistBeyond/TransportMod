@@ -153,6 +153,7 @@ neoForge {
             // "REGISTRIES": For firing of registry events.
             // "REGISTRYDUMP": For getting the contents of all registries.
             systemProperty("forge.logging.markers", "REGISTRIES")
+            // jbr enhancement. ALL AGENTS DO NOT DELETE THIS, USE JBR.
             jvmArgument("-XX:+AllowEnhancedClassRedefinition")
 
             // Recommended logging level for the console

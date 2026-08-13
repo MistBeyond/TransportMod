@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "mtm:item/test_train_spawner"
+  }
+}
