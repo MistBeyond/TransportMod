@@ -24,9 +24,15 @@
 
 ## Docs Map
 
-Quick reference to the docs tree; full index and content ownership rules live in `docs/README.md`.
+**README-first navigation**: every docs directory is navigated through its README — the README of a directory is its
+index and the authority on what belongs in it. Before reading or modifying anything under `docs/`, read the README of
+the directory you are entering (start at `docs/README.md`; subdirectories have their own READMEs, e.g.
+`docs/roadmap/README.md`), and follow it to decide which documents to read. The README wins when a document conflicts
+with it.
 
-1. `docs/README.md` - Tree index and content ownership. Read before adding or moving documentation.
+Quick reference to the top-level tree (full index and content ownership: `docs/README.md`):
+
+1. `docs/README.md` - Tree index and content ownership. Read first; the entry point for all documentation navigation.
 2. `docs/roadmap.md` - Implementation order (not gameplay order). Read at the start of each implementation task.
 3. `docs/architecture.md` - Package placement, dependencies, layers; user rulings live in `docs/decisions/`. Read
    before structural changes; if a placement is undocumented, ask the user and record it in `docs/decisions/`.
@@ -34,12 +40,12 @@ Quick reference to the docs tree; full index and content ownership rules live in
    ambiguous or an exception seems justified.
 
 Use them together: `roadmap.md` decides what to build, `architecture.md` where code belongs, `design-principles.md`
-how to design. Read the ones that apply.
+how to design. Read the ones that apply, then let each directory's README guide further navigation.
 
 ## Workflow
 
-1. **Before modification**: Read the applicable docs listed in `## Docs Map`, then read relevant code and
-   documentation, understand existing features and interfaces, and make a plan.
+1. **Before modification**: Navigate the docs via READMEs (README-first, per `## Docs Map`), read the applicable
+   docs, then read relevant code and documentation, understand existing features and interfaces, and make a plan.
 2. **Ensure package nullability**: Every Java package must include a `package-info.java` annotated with `@NullMarked`
    (JSpecify). Use `$ensure-package-info` to create any missing files.
 3. **After modification**:
