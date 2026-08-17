@@ -2,6 +2,8 @@ package com.mistbeyond.transport.api.rail.graph;
 
 import net.minecraft.util.StringRepresentable;
 
+import com.mojang.serialization.Codec;
+
 import java.util.Locale;
 
 public enum GridDirection implements StringRepresentable {
@@ -13,6 +15,8 @@ public enum GridDirection implements StringRepresentable {
     SOUTH_EAST(1, 1),
     SOUTH_WEST(-1, 1),
     NORTH_WEST(-1, -1);
+
+    public static final Codec<GridDirection> CODEC = Codec.STRING.xmap(GridDirection::valueOf, GridDirection::name);
 
     private final int dx;
     private final int dz;

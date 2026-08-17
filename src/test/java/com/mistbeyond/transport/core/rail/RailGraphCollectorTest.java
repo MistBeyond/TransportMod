@@ -4,9 +4,12 @@ import com.mistbeyond.transport.api.rail.graph.GridDirection;
 import com.mistbeyond.transport.api.rail.graph.GridPos;
 import com.mistbeyond.transport.api.rail.graph.RailEdgeView;
 import com.mistbeyond.transport.api.rail.graph.RailNodeId;
+import com.mistbeyond.transport.api.rail.graph.SignalPlacement;
 import com.mistbeyond.transport.api.rail.graph.TrackGraphSource;
 import com.mistbeyond.transport.api.rail.graph.TrackPlacement;
 import com.mistbeyond.transport.api.rail.graph.TrackType;
+import com.mistbeyond.transport.api.rail.section.SignalId;
+import com.mistbeyond.transport.api.rail.section.SignalType;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -52,7 +55,7 @@ class RailGraphCollectorTest {
         );
         RailNodeId start = graph.nodeAt(pos(0)).orElseThrow().id();
 
-        Optional<RailNodeId> farthest = RailNetworkService.farthestReachableNode(graph, start);
+        Optional<RailNodeId> farthest = RailGraphs.farthestReachableNode(graph, start);
 
         assertTrue(farthest.isPresent());
         assertEquals(graph.nodeAt(pos(2)).orElseThrow().id(), farthest.orElseThrow());
@@ -89,6 +92,41 @@ class RailGraphCollectorTest {
         assertTrue(graph.nodeAt(b).isPresent());
         assertTrue(graph.nodeAt(c).isEmpty());
         assertEquals(1, graph.edges().size());
+    }
+
+    @Test
+    void collectsSignalFromTrackCellData() {
+        GridPos a = pos(0);
+        GridPos b = pos(1);
+        TrackGraphSource source = new TrackGraphSource() {
+            @Override
+            public Set<TrackPlacement> placementsAt(GridPos cell) {
+                if (cell.equals(a)) {
+                    return Set.of(new TrackPlacement(a, GridDirection.EAST, TrackType.STRAIGHT));
+                }
+                if (cell.equals(b)) {
+                    return Set.of(new TrackPlacement(b, GridDirection.WEST, TrackType.STRAIGHT));
+                }
+                return Set.of();
+            }
+
+            @Override
+            public Optional<SignalPlacement> signalAt(GridPos cell) {
+                if (cell.equals(b)) {
+                    return Optional.of(new SignalPlacement(
+                            new SignalId("signal"),
+                            GridDirection.EAST,
+                            SignalType.BLOCK
+                    ));
+                }
+                return Optional.empty();
+            }
+        };
+
+        RailGraph graph = RailGraphCollector.collect(source, a);
+
+        assertEquals(1, graph.signals().size());
+        assertEquals("signal", graph.signals().iterator().next().id().value());
     }
 
     private static TrackGraphSource gridSource(Set<GridPos> cells, Set<GridDirection> directions) {

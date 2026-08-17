@@ -3,6 +3,7 @@ package com.mistbeyond.transport.core.rail;
 import com.mistbeyond.transport.api.rail.graph.GridPos;
 import com.mistbeyond.transport.api.rail.graph.RailEdgeId;
 import com.mistbeyond.transport.api.rail.graph.RailNodeId;
+import com.mistbeyond.transport.api.rail.graph.SignalPlacement;
 import com.mistbeyond.transport.api.rail.graph.TrackGraphSource;
 import com.mistbeyond.transport.api.rail.graph.TrackPlacement;
 
@@ -20,6 +21,7 @@ public final class RailGraphCollector {
         Map<GridPos, RailNode> nodes = new HashMap<>();
         Set<RailEdge> edges = new HashSet<>();
         Set<String> edgeKeys = new HashSet<>();
+        Set<Signal> signals = new HashSet<>();
         Set<GridPos> visited = new HashSet<>();
         ArrayDeque<GridPos> queue = new ArrayDeque<>();
         queue.add(start);
@@ -29,6 +31,7 @@ public final class RailGraphCollector {
             if (!visited.add(pos) || source.placementsAt(pos).isEmpty()) {
                 continue;
             }
+            source.signalAt(pos).ifPresent(placement -> signals.add(signalFor(pos, placement)));
             RailNode node = nodeFor(nodes, pos);
             for (TrackPlacement placement : source.placementsAt(pos)) {
                 if (!pos.equals(placement.start())) {
@@ -41,7 +44,11 @@ public final class RailGraphCollector {
                 addEdge(nodes, edges, edgeKeys, queue, node, neighbor, placement);
             }
         }
-        return new RailGraph(new HashSet<>(nodes.values()), edges, Set.of());
+        return new RailGraph(new HashSet<>(nodes.values()), edges, signals);
+    }
+
+    private static Signal signalFor(GridPos pos, SignalPlacement placement) {
+        return new Signal(placement.id(), pos, placement.direction(), placement.type());
     }
 
     private static boolean hasReversePlacement(TrackGraphSource source, GridPos from, GridPos to) {

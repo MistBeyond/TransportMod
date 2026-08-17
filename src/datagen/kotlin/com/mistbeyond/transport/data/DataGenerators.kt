@@ -2,6 +2,7 @@ package com.mistbeyond.transport.data
 
 import com.mistbeyond.transport.Ids
 import com.mistbeyond.transport.data.lang.ModLanguageProvider
+import com.mistbeyond.transport.data.model.ModModelProvider
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.fml.common.EventBusSubscriber

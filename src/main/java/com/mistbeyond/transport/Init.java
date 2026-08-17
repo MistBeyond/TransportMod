@@ -2,14 +2,20 @@ package com.mistbeyond.transport;
 
 import com.mistbeyond.registry.CommonRegistrar;
 import com.mistbeyond.transport.block.Blocks;
+import com.mistbeyond.transport.block.rail.RailTrackCellBlock;
+import com.mistbeyond.transport.block.rail.RailTrackCellBlockEntities;
+import com.mistbeyond.transport.core.rail.RailNetworkManager;
 import com.mistbeyond.transport.entity.rail.Entities;
 import com.mistbeyond.transport.item.CreativeTabs;
 import com.mistbeyond.transport.item.Items;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 public final class Init {
@@ -26,7 +32,13 @@ public final class Init {
 
     public static void registerCommon(IEventBus modBus, ModContainer modContainer) {
         REGISTRAR.registerCommon(modBus, modContainer);
+        RailTrackCellBlockEntities.BLOCK_ENTITY_TYPES.register(modBus);
         CreativeTabs.CREATIVE_TABS.register(modBus);
         Entities.ENTITY_TYPES.register(modBus);
+        NeoForge.EVENT_BUS.addListener((LevelEvent.Load event) -> {
+            if (event.getLevel() instanceof ServerLevel serverLevel) {
+                RailNetworkManager.of(serverLevel).setSource(RailTrackCellBlock.source(serverLevel));
+            }
+        });
     }
 }

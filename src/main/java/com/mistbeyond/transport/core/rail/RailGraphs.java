@@ -1,44 +1,24 @@
 package com.mistbeyond.transport.core.rail;
 
-import com.mistbeyond.transport.api.rail.dispatch.DispatchService;
 import com.mistbeyond.transport.api.rail.graph.GridPos;
 import com.mistbeyond.transport.api.rail.graph.RailEdgeView;
 import com.mistbeyond.transport.api.rail.graph.RailGraphView;
 import com.mistbeyond.transport.api.rail.graph.RailNodeId;
-import com.mistbeyond.transport.api.rail.graph.TrackGraphSource;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
 
 import java.util.ArrayDeque;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public final class RailNetworkService {
-    private static final ConcurrentMap<ResourceKey<Level>, RailNetwork> NETWORKS = new ConcurrentHashMap<>();
-
-    private RailNetworkService() {
-    }
-
-    public static DispatchService dispatch(ResourceKey<Level> dimension) {
-        return network(dimension).dispatch();
-    }
-
-    public static RailGraphView graph(ResourceKey<Level> dimension) {
-        return network(dimension).graph();
-    }
-
-    public static RailGraphView collectGraph(TrackGraphSource source, GridPos start) {
-        return RailGraphCollector.collect(source, start);
+public final class RailGraphs {
+    private RailGraphs() {
     }
 
     public static Optional<RailNodeId> farthestReachableNode(RailGraphView graph, RailNodeId start) {
-        boolean startExists = graph.nodes().stream().anyMatch(node -> node.id().equals(start));
-        if (!startExists) {
+        if (graph.nodes().stream().noneMatch(node -> node.id().equals(start))) {
             return Optional.empty();
         }
 
@@ -73,17 +53,15 @@ public final class RailNetworkService {
         return Optional.of(farthest);
     }
 
-    public static void replaceGraph(ResourceKey<Level> dimension, RailGraphView graph) {
-        NETWORKS.put(dimension, new RailNetwork(graph, new DispatchServiceImpl(graph, new ShortestPathRouter())));
+    public static Optional<RailNodeId> nearestReachableNode(RailGraphView graph, GridPos position) {
+        return graph.nodes().stream()
+                .min(Comparator.comparingInt(node -> manhattan(node.pos(), position)))
+                .map(com.mistbeyond.transport.api.rail.graph.RailNodeView::id);
     }
 
-    private static RailNetwork network(ResourceKey<Level> dimension) {
-        return NETWORKS.computeIfAbsent(dimension, ignored -> {
-            RailGraph graph = RailGraph.empty();
-            return new RailNetwork(graph, new DispatchServiceImpl(graph, new ShortestPathRouter()));
-        });
-    }
-
-    private record RailNetwork(RailGraphView graph, DispatchService dispatch) {
+    private static int manhattan(GridPos first, GridPos second) {
+        return Math.abs(first.x() - second.x())
+                + Math.abs(first.y() - second.y())
+                + Math.abs(first.z() - second.z());
     }
 }

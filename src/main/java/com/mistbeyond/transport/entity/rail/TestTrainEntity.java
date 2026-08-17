@@ -6,8 +6,9 @@ import com.mistbeyond.transport.api.rail.graph.RailEdgeView;
 import com.mistbeyond.transport.api.rail.graph.RailGraphView;
 import com.mistbeyond.transport.api.rail.graph.RailNodeId;
 import com.mistbeyond.transport.api.rail.graph.RailNodeView;
-import com.mistbeyond.transport.block.rail.TestTrackBlock;
-import com.mistbeyond.transport.core.rail.RailNetworkService;
+import com.mistbeyond.transport.api.rail.dispatch.RailTrainId;
+import com.mistbeyond.transport.block.rail.RailTrackCellBlock;
+import com.mistbeyond.transport.core.rail.RailNetworkManager;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,8 +34,16 @@ import java.util.Map;
 
 @SuppressWarnings("resource")
 public class TestTrainEntity extends Entity {
-    private static final double MAX_SPEED = 0.12;
+    /**
+     * Top speed: 10 m/s (0.5 blocks per tick).
+     */
+    private static final double MAX_SPEED = 0.5;
     private static final double ACCELERATION = 0.012;
+    /**
+     * Minimum interval between graph refresh attempts. Freshly placed track only becomes visible to a running train
+     * after this delay, and refresh only happens at dead ends or when the train has no edge at all.
+     */
+    private static final long GRAPH_REFRESH_INTERVAL_TICKS = 20;
 
     @Nullable
     private RailGraphView graph;
@@ -42,18 +51,22 @@ public class TestTrainEntity extends Entity {
     private EdgeState currentEdge;
     @Nullable
     private GridPos startPos;
+    @Nullable
+    private RailTrainId trainId;
     private Map<RailNodeId, List<EdgeEnd>> adjacency = Map.of();
     private double speed;
-    private final InterpolationHandler interpolation = new InterpolationHandler(this);
+    private long lastGraphRefreshTick = Long.MIN_VALUE;
+    private final TrainInterpolation interpolation = new TrainInterpolation(this);
 
     public TestTrainEntity(EntityType<? extends TestTrainEntity> type, Level level) {
         super(type, level);
         this.setNoGravity(true);
     }
 
-    public void begin(RailGraphView graph, GridPos startPos) {
+    public void begin(RailGraphView graph, GridPos startPos, RailTrainId trainId) {
         this.graph = graph;
         this.startPos = startPos;
+        this.trainId = trainId;
         this.adjacency = buildAdjacency(graph);
         this.currentEdge = firstEdge(graph, startPos);
         this.speed = 0.0;
@@ -66,8 +79,18 @@ public class TestTrainEntity extends Entity {
             this.interpolation.interpolate();
             return;
         }
-        if (this.graph == null || this.currentEdge == null) {
+        if (this.graph == null) {
             return;
+        }
+        if (this.currentEdge == null) {
+            // Track may have been placed under the train after it spawned (e.g. it spawned on an isolated cell
+            // that only later got connected): refresh the graph and try to pick up an edge.
+            if (refreshGraphAtTrain()) {
+                this.currentEdge = firstEdge(this.graph, new GridPos(this.getBlockX(), this.getBlockY(), this.getBlockZ()));
+            }
+            if (this.currentEdge == null) {
+                return;
+            }
         }
         if (!(this.getPassengers().stream().findFirst().orElse(null) instanceof ServerPlayer player)) {
             this.speed = 0.0;
@@ -90,14 +113,16 @@ public class TestTrainEntity extends Entity {
         double nextProgress = edge.progress + this.speed;
         if (nextProgress >= edge.length) {
             if (advanceAtNode(edge, false)) {
-                this.currentEdge.progress = 0.0;
+                // Carry the overshoot onto the next edge so per-tick travel stays exactly `speed` and the train
+                // does not slow down at every cell boundary.
+                this.currentEdge.progress = nextProgress - edge.length;
             } else {
                 edge.progress = edge.length;
                 this.speed = 0.0;
             }
         } else if (nextProgress <= 0.0) {
             if (advanceAtNode(edge, true)) {
-                this.currentEdge.progress = this.currentEdge.length;
+                this.currentEdge.progress = this.currentEdge.length + nextProgress;
             } else {
                 edge.progress = 0.0;
                 this.speed = 0.0;
@@ -106,6 +131,7 @@ public class TestTrainEntity extends Entity {
             edge.progress = nextProgress;
         }
         this.moveToCurrentPosition();
+        syncManagerPosition();
     }
 
     @Override
@@ -160,6 +186,9 @@ public class TestTrainEntity extends Entity {
         output.putString("EdgeId", this.currentEdge.edgeId.value());
         output.putDouble("Progress", this.currentEdge.progress);
         output.putDouble("Speed", this.speed);
+        if (this.trainId != null) {
+            output.putString("TrainId", this.trainId.value());
+        }
     }
 
     @Override
@@ -172,9 +201,16 @@ public class TestTrainEntity extends Entity {
         String edgeId = input.getStringOr("EdgeId", "");
         double progress = input.getDoubleOr("Progress", 0.0);
         double savedSpeed = input.getDoubleOr("Speed", 0.0);
+        String savedTrainId = input.getStringOr("TrainId", "entity-" + this.getUUID());
         if (this.level() instanceof ServerLevel serverLevel) {
-            RailGraphView graph = RailNetworkService.collectGraph(TestTrackBlock.source(serverLevel), savedStart);
-            this.begin(graph, savedStart);
+            RailNetworkManager manager = RailNetworkManager.of(serverLevel);
+            manager.setSource(RailTrackCellBlock.source(serverLevel));
+            RailTrainId trainId = new RailTrainId(savedTrainId);
+            if (manager.train(trainId).isEmpty()) {
+                manager.spawnTrain(trainId, savedStart);
+            }
+            RailGraphView graph = manager.graphAt(savedStart);
+            this.begin(graph, savedStart, trainId);
             if (!edgeId.isEmpty()) {
                 this.currentEdge = graph.edgeById(new RailEdgeId(edgeId))
                         .map(edge -> edgeStateFor(edge, savedStart))
@@ -189,10 +225,41 @@ public class TestTrainEntity extends Entity {
 
     private boolean advanceAtNode(EdgeState edge, boolean backward) {
         EdgeState next = nextEdge(this.adjacency, edge, backward);
-        if (next == null) {
+        if (next != null) {
+            this.currentEdge = next;
+            return true;
+        }
+        // The adjacency snapshot is stale when track was placed after this train spawned (the rail network only
+        // rebuilds its graph lazily): refresh once and retry before treating the node as a dead end.
+        if (refreshGraphAtTrain()) {
+            next = nextEdge(this.adjacency, edge, backward);
+            if (next != null) {
+                this.currentEdge = next;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Asks the rail network manager to validate and rebuild the graph around the train, then refreshes the train's
+     * graph reference and adjacency. Rate-limited so parked or genuinely dead-ended trains do not rebuild the graph
+     * every tick. Returns {@code true} when a rebuild attempt was actually made.
+     */
+    private boolean refreshGraphAtTrain() {
+        if (!(this.level() instanceof ServerLevel serverLevel)) {
             return false;
         }
-        this.currentEdge = next;
+        long tick = serverLevel.getGameTime();
+        if (tick - this.lastGraphRefreshTick < GRAPH_REFRESH_INTERVAL_TICKS) {
+            return false;
+        }
+        this.lastGraphRefreshTick = tick;
+        GridPos here = new GridPos(this.getBlockX(), this.getBlockY(), this.getBlockZ());
+        RailNetworkManager manager = RailNetworkManager.of(serverLevel);
+        manager.validateNear(here);
+        this.graph = manager.graphAt(here);
+        this.adjacency = buildAdjacency(this.graph);
         return true;
     }
 
@@ -318,6 +385,16 @@ public class TestTrainEntity extends Entity {
         this.setYRot(yaw);
     }
 
+    private void syncManagerPosition() {
+        if (trainId == null || !(this.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        RailNetworkManager.of(serverLevel).updatePosition(
+                trainId,
+                new GridPos(this.getBlockX(), this.getBlockY(), this.getBlockZ())
+        );
+    }
+
     record EdgeEnd(
             RailEdgeId edgeId,
             RailNodeId from,
@@ -351,6 +428,63 @@ public class TestTrainEntity extends Entity {
             this.fromPos = fromPos;
             this.toPos = toPos;
             this.length = length;
+        }
+    }
+
+    /**
+     * Linear client-side interpolation between server position updates. The vanilla {@link InterpolationHandler}
+     * advances by {@code 1/steps} of the remaining distance each tick (exponential ease-out), so within every sync
+     * window the train renders fast at first and then slows down, repeating the pattern every {@code updateInterval}
+     * ticks. This handler instead moves a constant fraction of the total step per tick, matching the server's constant
+     * speed. {@code STEPS} must match the entity type's tracking update interval (see {@code Entities.TEST_TRAIN}).
+     */
+    static final class TrainInterpolation extends InterpolationHandler {
+        private static final int STEPS = 3;
+
+        private final TestTrainEntity train;
+        private int steps;
+        private Vec3 target = Vec3.ZERO;
+        private Vec3 step = Vec3.ZERO;
+        private float targetYRot;
+        private float targetXRot;
+        private float yRotStep;
+        private float xRotStep;
+
+        TrainInterpolation(TestTrainEntity train) {
+            super(train);
+            this.train = train;
+        }
+
+        @Override
+        public void interpolateTo(Vec3 position, float yRot, float xRot) {
+            if (this.steps > 0 && this.target.distanceToSqr(position) < 1.0E-9) {
+                return;
+            }
+            Vec3 current = this.train.position();
+            this.target = position;
+            this.steps = STEPS;
+            this.step = position.subtract(current).scale(1.0 / STEPS);
+            this.targetYRot = yRot;
+            this.targetXRot = xRot;
+            this.yRotStep = Mth.wrapDegrees(yRot - this.train.getYRot()) / STEPS;
+            this.xRotStep = (xRot - this.train.getXRot()) / STEPS;
+        }
+
+        @Override
+        public void interpolate() {
+            if (this.steps <= 0) {
+                return;
+            }
+            this.steps--;
+            if (this.steps == 0) {
+                this.train.setPos(this.target);
+                this.train.setYRot(this.targetYRot);
+                this.train.setXRot(this.targetXRot);
+            } else {
+                this.train.setPos(this.train.position().add(this.step));
+                this.train.setYRot(this.train.getYRot() + this.yRotStep);
+                this.train.setXRot(this.train.getXRot() + this.xRotStep);
+            }
         }
     }
 }

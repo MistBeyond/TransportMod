@@ -1,6 +1,14 @@
 package com.mistbeyond.transport.api.rail.graph;
 
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
 public record TrackPlacement(GridPos originCell, GridDirection direction, TrackType trackType) {
+    public static final Codec<TrackPlacement> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            GridPos.CODEC.fieldOf("origin_cell").forGetter(TrackPlacement::originCell),
+            GridDirection.CODEC.fieldOf("direction").forGetter(TrackPlacement::direction),
+            TrackType.CODEC.fieldOf("track_type").forGetter(TrackPlacement::trackType)
+    ).apply(instance, TrackPlacement::new));
 
     public TrackPlacement {
         if (trackType == TrackType.STRAIGHT && direction.diagonal()) {
