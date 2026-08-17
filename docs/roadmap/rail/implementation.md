@@ -20,13 +20,19 @@ This document records the railway implementation direction for the Graph + Dispa
   states to that source.
 - `api.rail.graph.TrackCellData` is the read-only track cell contract. Content packages map BlockState and block entity
   data into it.
-- The track block uses one block ID with an 8-direction `direction` property. Simple cells have no block entity; complex
+- The track block uses one block ID with a `direction` property holding one of the four track axes (N–S, E–W, NE–SW,
+  NW–SE); the property stores one axis value, not eight one-way directions. Simple cells have no block entity; complex
   cells with crossings, curves, curve ramps, or signals use a block entity.
-- Datagen generates simple track models; the block entity renderer renders complex cells from `TrackCellData`.
-- Collision and physical occupancy are generated from `TrackCellData`, clipped to the owning block's 16x16 bounds, and
-  unioned for complex cells.
-- Track cells occupy one block slot and do not support waterlogging. Visual overflow does not create neighboring
-  occupancy, collision, or graph connections.
+- Datagen generates simple track models; complex cells render through the baked-model route: a custom unbaked model
+  resolved per block entity from `TrackCellData` through `ModelData`, merging complex-cell geometry into the chunk mesh
+  (see `docs/decisions/0006-complex-track-cell-rendering.md`).
+- Collision shapes are generated from `TrackCellData` as strips centered on the track axis that cover both rails and
+  the area between them (24 px gauge plus both rail widths, i.e. 26 px); they are not clipped to the owning block's
+  16x16 bounds and may overflow into neighboring cells. Complex cell collision is the union of the cell's rail collision
+  shapes.
+- Track cells occupy one block slot and do not support waterlogging. Physical occupancy is decoupled from collision
+  shapes. Visual overflow does not create neighboring occupancy, collision, or graph connections; collision strip
+  overflow does not create neighboring occupancy or graph connections.
 - Train entities ignore track collision and use entity AABBs against ordinary blocks and other entities.
 - The server owns a track graph model with nodes, edges, sections, signal boundaries, and reservation management.
 - Curve sample-point connections create track graph nodes and may split the original curve edge.
@@ -38,7 +44,8 @@ This document records the railway implementation direction for the Graph + Dispa
 - All trains use `core.rail.RailTrainAggregate`; manual and automatic are `RailControlMode` values.
 - Timetable stops reference `RailStationId`; station and freight platform block implementation is required later for the
   timetable MVP.
-- Section color preview, debug views, performance work, and tests are planned.
+- The F3 debug overlay (rail sections with colors and labels, plus signal markers with direction arrows) is
+  implemented. Section color preview for signal placement, performance work, and further tests are planned.
 - KubeJS integration should expose read access through immutable `RailNetworkSnapshot`, may use `core.rail`, and logs rare
   direct `internal.rail` exceptions.
 

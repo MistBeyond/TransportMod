@@ -61,9 +61,11 @@ implemented in this documentation-only change.
 
 - `api.rail.graph.TrackCellData` MUST be the read-only view of one track cell's placements and signal placement
   information.
-- The main track block MUST use one block ID with an 8-direction `direction` BlockState property.
-- A simple cell MUST contain exactly one straight or diagonal 45 placement and no signal. A simple cell MUST NOT have a
-  block entity.
+- The main track block MUST use one block ID with a `direction` BlockState property holding one of the four track
+  axes (N–S, E–W, NE–SW, NW–SE). The property stores one axis value, not eight one-way directions; the graph adapter
+  expands the stored axis into both directions.
+- A simple cell MUST contain exactly one straight or diagonal 45 segment (one axis) and no signal. A simple cell MUST
+  NOT have a block entity.
 - A complex cell MUST contain multiple placements, a curve, a curve ramp, a crossing, or a signal. A complex cell MUST
   have a block entity.
 - `TrackGraphSource` MUST read `TrackCellData`; it MUST check the block entity first and fall back to the BlockState
@@ -72,18 +74,23 @@ implemented in this documentation-only change.
   MUST remove the block entity and write the remaining placement back to the BlockState.
 - Complex block entities MUST use standard NBT persistence and update tags. Custom packets MUST NOT be used.
 - `TrackType` MUST include `CURVE` and `CURVE_RAMP` for future track geometry.
-- Datagen MUST generate simple track models for all 8 `direction` values. Complex cells MUST use a block entity renderer
-  that reads `TrackCellData`.
+- Datagen MUST generate simple track models for all 4 axis values. Complex cells MUST use the baked-model route: a
+  custom unbaked model resolved per block entity from `TrackCellData` through `ModelData`, so complex-cell geometry is
+  merged into the chunk mesh (see `docs/decisions/0006-complex-track-cell-rendering.md`).
 - Visual models MAY overflow neighboring cells. Visual overflow MUST NOT affect graph logic, collision, or occupancy.
-- Collision shapes MUST be generated from `TrackCellData` and clipped to the owning block's 16x16 bounds.
+- Collision shapes MUST be generated from `TrackCellData` as a strip centered on the track axis covering both rails and
+  the area between them. Strip width MUST follow the full rail profile: the 24 px gauge (rail center distance, 1.5
+  blocks) plus both rail widths (2 px each), i.e. 26 px (1.625 blocks). Collision
+  strips MUST NOT be clipped to the owning block's 16x16 bounds; they MAY overflow into neighboring cells.
 - Complex cell collision MUST be the union of all rail collision shapes in that cell.
 - Collision height MUST remain at the current approximate track height of 2 pixels (`0.125` blocks).
 - Trains MUST ignore track collision shapes. Train entities MUST collide with ordinary world blocks, other trains, and
   other entities through entity AABBs.
-- Each track cell MUST occupy exactly one `World Grid` block slot. Physical occupancy inside that slot MUST equal its
-  collision shape.
+- Each track cell MUST occupy exactly one `World Grid` block slot. Physical occupancy is decoupled from collision
+  shapes: a collision strip MAY overflow its own slot, and that overflow MUST NOT occupy neighboring slots.
 - Track cells MUST NOT support waterlogged states in the main mod.
-- Visual overflow MUST NOT occupy neighboring slots or create neighboring collision.
+- Visual overflow MUST NOT occupy neighboring slots or create neighboring collision. Collision strip overflow MUST NOT
+  create neighboring occupancy or graph connections.
 - Visual overlap MUST NOT create graph connections; connections MUST come only from explicit `TrackPlacement` entries.
 
 ## Train Aggregate and Control Modes
@@ -190,11 +197,15 @@ train aggregates, and persistence structures live in `core.rail` or `internal.ra
 17. A crossing, curve, curve ramp, or signal cell MUST use a block entity.
 18. The graph source MUST read the block entity first and fall back to BlockState direction.
 19. Upgrading or downgrading a track cell MUST preserve existing placement data.
-20. Simple cells MUST use datagen models; complex cells MUST use the block entity renderer.
-21. Track collision MUST exist only inside the owning block's 16x16 bounds.
+20. Simple cells MUST use datagen models; complex cells MUST use the baked-model route with per-block-entity
+    `ModelData`.
+21. Track collision MUST be a strip centered on the track axis covering both rails and the area between them (24 px
+    gauge plus both rail widths, i.e. 26 px), and it MAY overflow into neighboring cells beyond the owning block's
+    16x16 bounds.
 22. Complex collision MUST be the union of the cell's rail collision shapes.
 23. A track cell MUST occupy only its own block slot and MUST NOT be waterlogged.
-24. Visual overflow MUST NOT create neighboring occupancy or collision.
+24. Visual overflow MUST NOT create neighboring occupancy or collision; collision strip overflow MUST NOT create
+    neighboring occupancy or graph connections.
 25. Visual overlap MUST NOT create track graph connections.
 26. Train entities MUST ignore track collision but MUST collide with ordinary blocks and other entities.
 27. Reloading a save MUST restore complex block entity data and collision shapes.

@@ -25,7 +25,9 @@ Rail sections are the pieces of connected track that signals divide and trains r
   chosen exit. The reservation is released after the train exits.
 - Signal state is derived from dispatch reservations, manual train presence, and derailment section locks.
 - Signals have a direction; bidirectional track needs signals in both directions.
-- Section color preview is planned for signal placement and debug visualization.
+- The F3 debug overlay visualizes sections (colored per-section cell boxes with section ids) and signals (markers
+  with facing-direction arrows); sections split by signals show their boundary count in the label. Section color
+  preview during signal placement is planned.
 - Track and signal edits mark graph cache dirty. Validation is deferred until a train or player is nearby; a mismatch
   rebuilds the affected connected component.
 - `World Grid` is an abstract term for the interior of each Minecraft block cell. It is not a coordinate point, block

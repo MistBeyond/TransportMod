@@ -16,7 +16,7 @@ design principles live in `docs/design-principles.md`; this map records where th
 
 - `com.mistbeyond.transport` is the main mod root; the `@Mod` entry belongs here and should not contain feature logic.
 - Generated assets such as models, blockstates, language files, tags, recipes, and loot tables are produced through
-  datagen by default. Hand-written model files are not allowed except for custom templates that datagen cannot express.
+  datagen by default. Handwritten model files are not allowed except for custom templates that datagen cannot express.
 - `api` is an interface-first pure contract layer. It may use standard Java, JSpecify, and foundational
   Minecraft/NeoForge types, but it must not depend on any project package. It contains service interfaces, read-only
   views, I/O records such as IDs, requests, and results, plus stable public enums. Internal domain records such as
@@ -29,13 +29,6 @@ design principles live in `docs/design-principles.md`; this map records where th
   `api.rail.graph.TrackGraphSource`; blocks and items do not own graph construction or reachability searches.
 - `api.rail.graph.TrackCellData` is the read-only track cell contract. It contains track placements and signal placement
   information.
-- Track cells use one block ID with an 8-direction `direction` property. Simple cells have no block entity; complex
-  cells with crossings, curves, curve ramps, or signals use a block entity.
-- Datagen generates simple track models; the block entity renderer renders complex cells from `TrackCellData`.
-- Collision and physical occupancy are generated from `TrackCellData`, clipped to the owning block's 16x16 bounds, and
-  unioned for complex cells. Track cells occupy one block slot and do not support waterlogging.
-- Visual overflow does not create neighboring occupancy, collision, or graph connections. Train entities ignore track
-  collision and use entity AABBs against ordinary blocks and other entities.
 - `internal` is a minimal implementation-detail container. `internal.<feature>` exists for implementation details that
   do not yet fit `core`. Its exact boundaries and dependency rules will be defined by code practice, not documented in
   advance.

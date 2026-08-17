@@ -17,7 +17,7 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 - Tracks use real-world rail models and widths as design references; exact gauge and block scale are still open.
 - Tracks are represented by a server-side track graph for logic plus world blocks and models for presentation.
 - Track cells use `api.rail.graph.TrackCellData` with one block ID. Simple cells use BlockState direction; complex cells
-  use a block entity and block entity renderer.
+  use a block entity and render through the baked-model route (custom unbaked model + per-block-entity `ModelData`).
 - `World Grid` is an abstract term for the interior of each Minecraft block cell. It is not a code type or API type.
   Full definition is inlined in `docs/roadmap/rail/tracks.md` and `docs/roadmap/rail/sections.md`.
 - Track placement supports two modes: enhanced block placement and Satisfactory-like ghost preview placement.
@@ -84,8 +84,10 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
   points.
 - Track edits mark graph cache dirty; validation is deferred until a train or player is nearby and rebuilds the affected
   connected component.
-- Track cell collision and occupancy are generated from `TrackCellData`, clipped to the owning block, and unioned for
-  complex cells. Visual overflow does not occupy neighboring cells.
+- Track cell collision is generated from `TrackCellData` as gauge-wide strips covering both rails and the area between
+  them (24 px gauge plus both rail widths, i.e. 26 px), not clipped to the owning block; complex cell collision is the
+  union of the cell's rail collision shapes. Occupancy stays one block slot per cell and is decoupled from collision
+  shapes. Visual overflow does not occupy neighboring cells.
 - Signal semantics, timetable behavior, collision/derailment, and persistence follow
   `docs/roadmap/rail/runtime-contract.md`.
 

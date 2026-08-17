@@ -24,23 +24,17 @@
 
 ## Docs Map
 
-Before any design or code change, read the relevant documents under `docs/` as needed. These three documents are the
-primary entry points and must be checked first:
+Quick reference to the docs tree; full index and content ownership rules live in `docs/README.md`.
 
-1. `docs/roadmap.md` - Defines code implementation order. It determines what to build first and which roadmap node is
-   current, not gameplay phase order. Read it at the start of each implementation task; node details under
-   `docs/roadmap/` are read on demand from the roadmap.
-2. `docs/architecture.md` - Authoritative architecture map. It records package placement, dependency direction, layer
-   boundaries, and confirmed user architecture rulings. Read it before structural changes such as new packages, moving
-   or extracting classes, or changing dependency direction. If a placement is not documented, ask the user and record
-   the decision.
-3. `docs/design-principles.md` - Full design principles. It explains the rationale, application, and exception criteria
-   behind the `Design Principles` section in this file. Read it when a design decision is ambiguous or an exception
-   seems justified.
+1. `docs/README.md` - Tree index and content ownership. Read before adding or moving documentation.
+2. `docs/roadmap.md` - Implementation order (not gameplay order). Read at the start of each implementation task.
+3. `docs/architecture.md` - Package placement, dependencies, layers; user rulings live in `docs/decisions/`. Read
+   before structural changes; if a placement is undocumented, ask the user and record it in `docs/decisions/`.
+4. `docs/design-principles.md` - Rationale behind the `Design Principles` section. Read when a design decision is
+   ambiguous or an exception seems justified.
 
-Use them together: `roadmap.md` decides what to do and in which order, `architecture.md` decides where code belongs,
-and `design-principles.md` decides how new code should be designed. A specific change may only need one or two of them,
-but do not skip any that apply.
+Use them together: `roadmap.md` decides what to build, `architecture.md` where code belongs, `design-principles.md`
+how to design. Read the ones that apply.
 
 ## Workflow
 
@@ -56,20 +50,19 @@ but do not skip any that apply.
 
 ## Design Principles
 
-1. **Contracts live in `api`; `core` carries gameplay**: `api.<feature>` is pure; `core.<feature>` contains gameplay,
-   business rules, services, state machines, public entry points, and `api` implementations. `internal.<feature>` is a
-   minimal implementation-detail placeholder whose boundary is defined by code practice.
-2. **Dependencies stay acyclic**: `api` depends on no project packages. `core` depends on `api`/`config`/`util`.
-   Content packages are final presentation and must not be depended on by `core`. `internal` dependency rules are left
-   open until code practice defines them.
-3. **Prefer composition to inheritance**: Extend framework classes only when NeoForge/Minecraft requires it.
+1. **Contracts live in `api`; `core` carries gameplay**: `api.<feature>` is pure contracts; `core.<feature>` owns
+   gameplay, rules, and `api` implementations; `internal.<feature>` is a minimal implementation-detail placeholder.
+2. **Dependencies stay acyclic**: `api` depends on no project packages; `core` depends on `api`/`config`/`util`;
+   content packages are final presentation and must not be depended on by `core`.
+3. **Prefer composition to inheritance**: Subclass framework types only where NeoForge/Minecraft requires it.
 4. **Prefer immutable data and explicit JSpecify nullability**: Avoid null literals and shared mutable state in new
-   code.
+   code; every package is `@NullMarked`.
 5. **Cross-feature access goes through public APIs**: Prefer `api`; content packages use `core`; direct `internal`
-   access is allowed when concrete code needs it.
-6. **External integrations live in `integration`**: JEI, Jade, KubeJS, and any other addon or third-party mod
-   integration belongs under `integration`; do not create top-level addon packages outside it. KubeJS defaults to `api`,
-   may use `core`, and logs rare `internal` exceptions.
+   access only when concrete code needs it.
+6. **External integrations live in `integration`**: JEI, Jade, KubeJS, and other addon integration goes under
+   `integration`; no top-level addon packages. KubeJS defaults to `api`.
+7. **Do not use NeoForge `@OnlyIn`**: Keep client-only code in `client` packages and wire it through client entry
+   points.
 
 Detailed rationale, examples, and exception criteria: `docs/design-principles.md`.
 

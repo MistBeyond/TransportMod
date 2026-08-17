@@ -32,7 +32,8 @@ Tracks are the foundation of the railway network. They provide train paths, rail
 - Tracks are bidirectional by default; directional signals define one-way movement.
 - Real-world track width can inform visual design, but exact model scale is open.
 - Track cells use `api.rail.graph.TrackCellData` as the read-only world adapter contract.
-- The main track block uses one block ID with an 8-direction `direction` property. Simple cells have no block entity;
+- The main track block uses one block ID with a `direction` property holding one of the four track axes (N–S, E–W,
+  NE–SW, NW–SE); the property stores one axis value, not eight one-way directions. Simple cells have no block entity;
   complex cells have a block entity.
 - `TrackType` includes `CURVE` and `CURVE_RAMP` for future curve geometry.
 
@@ -52,11 +53,17 @@ Tracks are the foundation of the railway network. They provide train paths, rail
 - Path length is one World Grid cell diagonal.
 - Participates in the track graph as an ordinary straight edge for nodes, edges, paths, sections, and reservations.
 - Can connect to straight, diagonal 45, curves, and curve ramps at either end.
+- Its collision is the same gauge-wide strip rule (both rails plus the area between them, 24 px gauge plus both rail
+  widths, i.e. 26 px) rotated to the 45-degree axis; because a single axis-aligned `VoxelShape` box cannot express a
+  45-degree strip, the shape is approximated with multiple axis-aligned boxes.
 
 ## Track Cell Storage
 
-- A simple cell contains exactly one straight or diagonal 45 placement and no signal. It is stored by the BlockState
-  `direction` property.
+- A simple cell represents exactly one straight or diagonal 45 segment (one track axis) and no signal. It is stored by
+  the BlockState `direction` property as one axis value, and the graph adapter interprets it as a bidirectional segment:
+  it emits both directional placements of the stored axis, so a line of same-facing simple cells forms a connected
+  bidirectional track graph and manual driving works. Crossings and corners still require complex cells with multiple
+  placements.
 - A complex cell contains multiple placements, a curve, a curve ramp, a crossing, or a signal. It is stored by the track
   cell block entity.
 - `TrackGraphSource` reads `TrackCellData`: it checks the block entity first and falls back to the BlockState direction
@@ -68,22 +75,30 @@ Tracks are the foundation of the railway network. They provide train paths, rail
 
 ## Rendering
 
-- Datagen generates simple track block models for all 8 `direction` values.
-- Complex cells use a block entity renderer that reads `TrackCellData`.
+- Datagen generates simple track block models for all 4 axis values.
+- Complex cells use the baked-model route: a custom unbaked model resolved per block entity from `TrackCellData`
+  through `ModelData`, so complex-cell geometry is merged into the chunk mesh (see
+  `docs/decisions/0006-complex-track-cell-rendering.md`).
 - Visual models may overflow neighboring cells. Visual overflow does not affect graph logic, collision, or occupancy.
 
 ## Collision and Occupancy
 
 - `getCollisionShape` and `getShape` use generated track collision shapes instead of a full 16x16x2 box.
+- A collision shape is a strip centered on the track axis that covers both rails and the area between them. The strip
+  width follows the full rail profile: the 24 px gauge (rail center distance, 1.5 blocks) plus both rail widths (2 px
+  each), i.e. 26 px (1.625 blocks).
+- Collision strips are not clipped to the owning block's 16x16 bounds and may overflow into neighboring cells.
 - Simple cells use fixed cached collision shapes per direction and track type.
 - Complex cells use dynamic collision shapes generated from `TrackCellData`.
-- Collision follows actual rail geometry clipped to the owning block's 16x16 bounds.
 - Complex cell collision is the union of all rail collision shapes in that cell.
 - Collision height stays at the current approximate track height of 2 pixels (`0.125` blocks).
 - A track cell occupies exactly one `World Grid` block slot. Waterlogged track cells are not supported.
-- Physical occupancy inside a cell equals its collision shape.
-- Multiple placements may share one complex cell; occupancy is the union of their collision shapes.
-- Visual overflow does not occupy neighboring slots and does not create neighboring collision.
+- Physical occupancy is decoupled from collision shapes: a collision strip may overflow its own slot, and that overflow
+  does not occupy neighboring slots.
+- Multiple placements may share one complex cell; occupancy remains slot-based and does not change with the collision
+  union.
+- Visual overflow does not create neighboring occupancy or collision. Collision strip overflow does not create
+  neighboring occupancy or graph connections.
 - Visual overlap does not create graph connections; connections come only from explicit `TrackPlacement` entries.
 - Trains ignore track collision shapes. Train entities collide with ordinary world blocks, other trains, and other
   entities through entity AABBs.
