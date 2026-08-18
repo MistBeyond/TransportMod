@@ -80,7 +80,7 @@ implemented in this documentation-only change.
 - Visual models MAY overflow neighboring cells. Visual overflow MUST NOT affect graph logic, collision, or occupancy.
 - Collision shapes MUST be generated from `TrackCellData` as a strip centered on the track axis covering both rails and
   the area between them. Strip width MUST follow the full rail profile: the 24 px gauge (rail center distance, 1.5
-  blocks) plus both rail widths (2 px each), i.e. 26 px (1.625 blocks). Collision
+  blocks) plus both rail half-widths (1 px each), i.e. 24 + 1 + 1 = 26 px (1.625 blocks). Collision
   strips MUST NOT be clipped to the owning block's 16x16 bounds; they MAY overflow into neighboring cells.
 - Complex cell collision MUST be the union of all rail collision shapes in that cell.
 - Collision height MUST remain at the current approximate track height of 2 pixels (`0.125` blocks).
@@ -130,13 +130,27 @@ implemented in this documentation-only change.
 
 ## Signals and Dispatch
 
-- Player-visible signal state MUST be limited to `RED` and `GREEN`. Complex aspects, additional signal types, and custom
-  signal states are addon extension points.
+- Signal aspects MUST be limited to `RED` and `GREEN`. Complex aspects, additional signal types, and custom signal
+  states are addon extension points. A misconfigured signal MUST show an `ERROR` indicator and behave as `RED`.
+- At most one signal MUST be placed per cell per facing direction; opposite directions may share a cell.
+- A signal whose facing side has no track MUST show the `ERROR` indicator and behave as `RED`.
+- A path signal MUST be placed on an approach chain whose facing side eventually reaches a routing node; a path signal
+  whose facing side never reaches a routing node MUST show the `ERROR` indicator and behave as `RED`.
 - A block signal is directional: it protects the next section in its facing direction.
 - A path signal is directional: at a junction entrance, it reserves the full conflict path through the junction to the
   chosen exit, and the reservation is released after the train exits.
+- A path signal MUST display `GREEN` only when the required reservation for the approaching automatic train's route
+  locked at departure through the junction can be granted atomically; otherwise it MUST display `RED`.
+- Trains whose paths do not conflict MUST be allowed to traverse a junction simultaneously; a given conflict path MUST
+  admit only one train at a time.
+- Two paths conflict when they share any track segment or cell, or cross at the same routing-node cell at the same
+  height; different-height crossings MUST NOT conflict. Only fully disjoint paths MAY be traversed simultaneously.
+- Once a junction route reservation is granted, the related entrance signals MUST turn `RED` until the train's tail
+  exits the junction; the full conflict-path reservation MUST then be released as a whole.
 - Automatic routes MUST lock at departure and reserve/release sections stepwise.
-- When a red signal or reserved section blocks the route, an automatic train MUST stop and wait.
+- When a red signal or reserved section blocks the route, an automatic train MUST stop and wait, and MUST retry
+  advancement after a reservation, occupancy, or signal-state change that may unblock it. Implementations SHOULD use
+  event-driven wake-up and MAY keep a low-frequency fallback retry.
 - When the graph changes, an automatic train MUST try to reroute. If no route is available, or the new route is blocked,
   the train MUST stop and wait.
 - Manual trains may ignore signals. They still participate in collision detection and section locking.
@@ -200,7 +214,7 @@ train aggregates, and persistence structures live in `core.rail` or `internal.ra
 20. Simple cells MUST use datagen models; complex cells MUST use the baked-model route with per-block-entity
     `ModelData`.
 21. Track collision MUST be a strip centered on the track axis covering both rails and the area between them (24 px
-    gauge plus both rail widths, i.e. 26 px), and it MAY overflow into neighboring cells beyond the owning block's
+    gauge plus both rail half-widths, i.e. 26 px), and it MAY overflow into neighboring cells beyond the owning block's
     16x16 bounds.
 22. Complex collision MUST be the union of the cell's rail collision shapes.
 23. A track cell MUST occupy only its own block slot and MUST NOT be waterlogged.
@@ -209,9 +223,19 @@ train aggregates, and persistence structures live in `core.rail` or `internal.ra
 25. Visual overlap MUST NOT create track graph connections.
 26. Train entities MUST ignore track collision but MUST collide with ordinary blocks and other entities.
 27. Reloading a save MUST restore complex block entity data and collision shapes.
+28. A path signal MUST display `GREEN` only when the required reservation for the approaching automatic train's route
+    locked at departure through the junction could be granted atomically, and `RED` otherwise; trains with
+    non-conflicting paths MUST be able to traverse a junction simultaneously.
+29. A misconfigured signal (no track in its facing direction, or a path signal whose facing side never reaches a
+    routing node) MUST show the `ERROR` indicator and behave as `RED`; repositioning or refacing the signal restores
+    its normal indication.
+30. Two trains whose paths share a track segment or cell, or a same-height routing-node cell, MUST NOT traverse a
+    junction simultaneously; fully disjoint paths MAY do so.
 
 ## Related Documents
 
 - `docs/decisions/0002-rail-graph-ownership-and-lifecycle.md`
 - `docs/decisions/0003-rail-runtime-threading-and-snapshots.md`
 - `docs/decisions/0004-rail-signals-dispatch-and-train-aggregate.md`
+- `docs/decisions/0007-rail-path-signals-and-blocked-train-wakeup.md`
+- `docs/decisions/0008-rail-signal-placement-conflict-and-error-state.md`

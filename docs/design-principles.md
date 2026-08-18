@@ -35,7 +35,9 @@ section stays short by design; the rationale lives here.
 - **Why**: NeoForge/Minecraft classes are heavy and tied to lifecycle hooks. Composition keeps behavior small, focused,
   and testable without framework instances.
 - **How to apply**: Build behavior from fields and helper components; use inheritance only where the framework requires
-  a subclass.
+  a subclass. Keep classes non-final by default: other mods may legitimately extend our classes, so `final` is
+  reserved for a concrete reason such as an invariant that subclassing would break (ADR 0009). Data carriers stay
+  records, which are implicitly final and unaffected by this rule.
 - **Example**: Machine logic and energy networks live in plain classes; blocks and block entities subclass framework
   types only at the boundary.
 - **When to break**: Extension points such as blocks, items, block entities, and Mixin targets require subclassing

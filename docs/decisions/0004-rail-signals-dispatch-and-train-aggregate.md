@@ -4,6 +4,10 @@ Status: Accepted
 
 Date: 2026-08-14
 
+Revised: 2026-08-17 — The "Player-visible signal state is limited to `RED` and `GREEN`" ruling is amended: signal aspects
+stay limited to `RED`/`GREEN`, but a misconfigured signal additionally shows an `ERROR` indicator and behaves as `RED`.
+Recorded in ADR 0008.
+
 ## Context
 
 The rail system needs signal semantics, automatic scheduling, station/platform behavior, and a train model that supports

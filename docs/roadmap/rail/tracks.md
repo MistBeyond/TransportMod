@@ -54,7 +54,7 @@ Tracks are the foundation of the railway network. They provide train paths, rail
 - Participates in the track graph as an ordinary straight edge for nodes, edges, paths, sections, and reservations.
 - Can connect to straight, diagonal 45, curves, and curve ramps at either end.
 - Its collision is the same gauge-wide strip rule (both rails plus the area between them, 24 px gauge plus both rail
-  widths, i.e. 26 px) rotated to the 45-degree axis; because a single axis-aligned `VoxelShape` box cannot express a
+  half-widths, i.e. 26 px) rotated to the 45-degree axis; because a single axis-aligned `VoxelShape` box cannot express a
   45-degree strip, the shape is approximated with multiple axis-aligned boxes.
 
 ## Track Cell Storage
@@ -85,8 +85,8 @@ Tracks are the foundation of the railway network. They provide train paths, rail
 
 - `getCollisionShape` and `getShape` use generated track collision shapes instead of a full 16x16x2 box.
 - A collision shape is a strip centered on the track axis that covers both rails and the area between them. The strip
-  width follows the full rail profile: the 24 px gauge (rail center distance, 1.5 blocks) plus both rail widths (2 px
-  each), i.e. 26 px (1.625 blocks).
+  width follows the full rail profile: the 24 px gauge (rail center distance, 1.5 blocks) plus both rail half-widths
+  (1 px each), i.e. 24 + 1 + 1 = 26 px (1.625 blocks).
 - Collision strips are not clipped to the owning block's 16x16 bounds and may overflow into neighboring cells.
 - Simple cells use fixed cached collision shapes per direction and track type.
 - Complex cells use dynamic collision shapes generated from `TrackCellData`.

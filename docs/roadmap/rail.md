@@ -60,7 +60,8 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 - Tracks use a track graph for logic and world presentation for gameplay.
 - The whole connected track graph forms one default rail section; signals split it into smaller sections.
 - Block signals and path signals use Satisfactory-like semantics.
-- Player-visible signal state is limited to `RED` and `GREEN`; complex signal states are addon extensions.
+- Signal aspects are limited to `RED` and `GREEN`; a misconfigured signal additionally shows an `ERROR` indicator and
+  behaves as `RED`. Complex signal states are addon extensions.
 - Automatic trains use timetable-based pathfinding, shortest path with station penalty, locked route, and stepwise
   reservation.
 - Manual trains can ignore signals; collisions derail all involved trains and lock the occupied section until reset and
@@ -85,16 +86,17 @@ The binding runtime contract is `docs/roadmap/rail/runtime-contract.md`. Archite
 - Track edits mark graph cache dirty; validation is deferred until a train or player is nearby and rebuilds the affected
   connected component.
 - Track cell collision is generated from `TrackCellData` as gauge-wide strips covering both rails and the area between
-  them (24 px gauge plus both rail widths, i.e. 26 px), not clipped to the owning block; complex cell collision is the
+  them (24 px gauge plus both rail half-widths, i.e. 26 px), not clipped to the owning block; complex cell collision is the
   union of the cell's rail collision shapes. Occupancy stays one block slot per cell and is decoupled from collision
   shapes. Visual overflow does not occupy neighboring cells.
 - Signal semantics, timetable behavior, collision/derailment, and persistence follow
   `docs/roadmap/rail/runtime-contract.md`.
+- Automatic deadlock breaking is a future extension; cyclic deadlocks involving multiple junctions are outside the scope
+  of automatic resolution and MUST be resolved through player actions (no dedicated tool is provided beyond the derail
+  reset).
 
 ## Open Questions
 
-- Signal visualization and debug presentation rules.
-- Deadlock avoidance beyond stop-and-wait behavior.
 - Exact station block placement and visual model.
 - How real-world track width scales to Minecraft block dimensions.
 - How freight underframes and replaceable cargo bodies connect and swap.

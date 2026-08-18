@@ -5,8 +5,13 @@ Status: Accepted
 Date: 2026-08-14
 
 Revised: 2026-08-16 — Collision shapes changed from 16x16-clipped narrow rails to gauge-wide strips (24 px gauge plus
-both rail widths, i.e. 26 px) centered on the track axis that may overflow neighboring cells; physical occupancy is
+both rail half-widths, i.e. 26 px) centered on the track axis that may overflow neighboring cells; physical occupancy is
 decoupled from collision shapes. See the decision bullets below.
+
+Revised: 2026-08-17 — Corrected the strip-width derivation in the collision decision: the strip is 24 px gauge plus both
+rail half-widths (1 px each) = 26 px; the earlier wording "plus both rail widths (2 px each)" was an arithmetic typo
+(24 + 2 + 2 = 28, not 26). The 26 px decision value is unchanged. The current implementation uses a narrower strip
+(22.4 px); the mismatch is recorded here for the code owner, and the docs keep the 26 px decision.
 
 Revised: 2026-08-16 — Simple straight/diagonal 45 cells are bidirectional: the graph adapter emits the `direction`
 placement and its opposite, so a line of same-facing simple cells forms a connected bidirectional track graph and
@@ -47,7 +52,7 @@ rendering, collision, and occupancy model that can represent complex track cells
   occupancy.
 - Generate collision shapes from `TrackCellData` as strips centered on the track axis that cover both rails and the
   area between them. Strip width follows the full rail profile: the 24 px gauge (rail center distance, 1.5 blocks)
-  plus both rail widths (2 px each), i.e. 26 px (1.625 blocks). Keep the current approximate height of 2 pixels
+  plus both rail half-widths (1 px each), i.e. 24 + 1 + 1 = 26 px (1.625 blocks). Keep the current approximate height of 2 pixels
   (`0.125` blocks).
 - Do not clip collision strips to the owning block's 16x16 bounds; they may overflow into neighboring cells.
 - Represent complex cell collision as the union of all rail collision shapes in that cell.

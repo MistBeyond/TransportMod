@@ -27,7 +27,7 @@ This document records the railway implementation direction for the Graph + Dispa
   resolved per block entity from `TrackCellData` through `ModelData`, merging complex-cell geometry into the chunk mesh
   (see `docs/decisions/0006-complex-track-cell-rendering.md`).
 - Collision shapes are generated from `TrackCellData` as strips centered on the track axis that cover both rails and
-  the area between them (24 px gauge plus both rail widths, i.e. 26 px); they are not clipped to the owning block's
+  the area between them (24 px gauge plus both rail half-widths, i.e. 26 px); they are not clipped to the owning block's
   16x16 bounds and may overflow into neighboring cells. Complex cell collision is the union of the cell's rail collision
   shapes.
 - Track cells occupy one block slot and do not support waterlogging. Physical occupancy is decoupled from collision
