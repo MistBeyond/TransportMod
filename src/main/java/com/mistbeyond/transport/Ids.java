@@ -2,7 +2,7 @@ package com.mistbeyond.transport;
 
 import net.minecraft.resources.Identifier;
 
-public final class Ids {
+public class Ids {
     public static final String MOD_ID = "mtm";
 
     private Ids() {

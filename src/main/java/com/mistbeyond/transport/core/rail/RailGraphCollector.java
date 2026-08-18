@@ -13,7 +13,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public final class RailGraphCollector {
+public class RailGraphCollector {
     private RailGraphCollector() {
     }
 

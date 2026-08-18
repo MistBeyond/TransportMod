@@ -1,18 +1,16 @@
 {
   "variants": {
     "direction=e_w": {
-      "model": "mtm:block/track",
-      "y": 90
+      "type": "mtm:track_cell"
     },
     "direction=n_s": {
-      "model": "mtm:block/track"
+      "type": "mtm:track_cell"
     },
     "direction=ne_sw": {
-      "model": "mtm:block/track_diagonal",
-      "y": 90
+      "type": "mtm:track_cell"
     },
     "direction=nw_se": {
-      "model": "mtm:block/track_diagonal"
+      "type": "mtm:track_cell"
     }
   }
 }

@@ -21,7 +21,7 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-public final class ShortestPathRouter implements RailPathfinder {
+public class ShortestPathRouter implements RailPathfinder {
     private static final double EPSILON = 1.0E-9;
 
     @Override

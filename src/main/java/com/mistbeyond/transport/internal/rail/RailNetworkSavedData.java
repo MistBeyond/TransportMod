@@ -7,7 +7,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 import org.jspecify.annotations.Nullable;
 
-public final class RailNetworkSavedData extends SavedData {
+public class RailNetworkSavedData extends SavedData {
     public static final SavedDataType<RailNetworkSavedData> TYPE = new SavedDataType<>(
             Ids.thisMod("rail_network"),
             RailNetworkSavedData::new,

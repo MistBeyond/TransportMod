@@ -22,13 +22,13 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 import java.util.HashSet;
@@ -44,36 +44,6 @@ public class RailTrackCellBlock extends Block {
      */
     public static final EnumProperty<TrackAxis> DIRECTION = EnumProperty.create("direction", TrackAxis.class);
 
-    /**
-     * Collision strip width follows the standard gauge of approximately 1.4 blocks (22.4 px). The strip is centered
-     * on the track axis, covers both rails and the area between them, and is not clipped to the owning block's 16x16
-     * bounds, so it may overflow into neighboring cells.
-     */
-    private static final double STRIP_HALF_WIDTH = 11.2;
-
-    private static final VoxelShape EAST_WEST_STRIP =
-            Block.box(0.0, 0.0, 8.0 - STRIP_HALF_WIDTH, 16.0, 2.0, 8.0 + STRIP_HALF_WIDTH);
-    private static final VoxelShape NORTH_SOUTH_STRIP =
-            Block.box(8.0 - STRIP_HALF_WIDTH, 0.0, 0.0, 8.0 + STRIP_HALF_WIDTH, 2.0, 16.0);
-    /**
-     * 45-degree strip along the x == z axis (NORTH_WEST/SOUTH_EAST), approximated with axis-aligned boxes.
-     */
-    private static final VoxelShape DIAGONAL_XZ_STRIP = Shapes.or(
-            Block.box(0.0, 0.0, 0.0, 4.0, 2.0, 15.2),
-            Block.box(4.0, 0.0, 0.0, 8.0, 2.0, 16.0),
-            Block.box(8.0, 0.0, 0.0, 12.0, 2.0, 16.0),
-            Block.box(12.0, 0.0, 0.8, 16.0, 2.0, 16.0)
-    );
-    /**
-     * 45-degree strip along the x + z == 16 axis (NORTH_EAST/SOUTH_WEST), approximated with axis-aligned boxes.
-     */
-    private static final VoxelShape DIAGONAL_XZ16_STRIP = Shapes.or(
-            Block.box(0.0, 0.0, 0.8, 4.0, 2.0, 16.0),
-            Block.box(4.0, 0.0, 0.0, 8.0, 2.0, 16.0),
-            Block.box(8.0, 0.0, 0.0, 12.0, 2.0, 16.0),
-            Block.box(12.0, 0.0, 0.0, 16.0, 2.0, 15.2)
-    );
-
     public RailTrackCellBlock(BlockBehaviour.Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(DIRECTION, TrackAxis.E_W));
@@ -81,12 +51,14 @@ public class RailTrackCellBlock extends Block {
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return collisionShape(state);
+        // The aiming/terrain shape is a single cell-centered box (not the 1 px staircase), so vanilla break particles
+        // spawn in normal quantity, centered on the cell; the physical collision stays collisionShape below.
+        return AIMING_SHAPE;
     }
 
     @Override
     protected VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return collisionShape(state);
+        return collisionShape(state, level, pos);
     }
 
     @Override
@@ -152,15 +124,26 @@ public class RailTrackCellBlock extends Block {
         };
     }
 
-    public static VoxelShape collisionShape(BlockState state) {
-        TrackAxis axis = state.getValue(DIRECTION);
-        return switch (axis) {
-            case N_S -> NORTH_SOUTH_STRIP;
-            case E_W -> EAST_WEST_STRIP;
-            case NE_SW -> DIAGONAL_XZ16_STRIP;
-            case NW_SE -> DIAGONAL_XZ_STRIP;
-        };
+    /**
+     * Collision shape for a track cell: the block entity's union of placement strips when the cell is complex,
+     * otherwise the strip of the BlockState axis. The graph source reads cells the same way (block entity first,
+     * BlockState fallback), so collision and graph always agree on what a cell contains.
+     */
+    public static VoxelShape collisionShape(BlockState state, BlockGetter level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (blockEntity instanceof TrackCellData complex
+                && complex.cell().equals(new GridPos(pos.getX(), pos.getY(), pos.getZ()))) {
+            return TrackCellShapes.cellShape(complex.placements());
+        }
+        return TrackCellShapes.axisShape(state.getValue(DIRECTION));
     }
+
+    /**
+     * Aiming/terrain shape for a track cell (used by {@code getShape}): a single 16x16x2 box centered on the cell.
+     * An axis-aligned full-cell box keeps vanilla break/terrain particles at normal quantity (one box, not one burst
+     * per 1 px collision box) and centered on the cell, so they never burst toward a neighbor.
+     */
+    public static final VoxelShape AIMING_SHAPE = Block.box(0.0, 0.0, 0.0, 16.0, 2.0, 16.0);
 
     /**
      * Placements emitted by a simple track cell: both directional placements of the stored axis, so a cell connects
@@ -218,7 +201,7 @@ public class RailTrackCellBlock extends Block {
         registration.register(
                 "rail_track_cell",
                 RailTrackCellBlock::new,
-                properties -> properties.strength(0.5F).noOcclusion()
+                properties -> properties.strength(0.5F).noOcclusion().sound(SoundType.METAL)
         );
     }
 }

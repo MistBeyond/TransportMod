@@ -3,10 +3,10 @@ package com.mistbeyond.transport.data.model
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.mistbeyond.transport.Ids
+import com.mistbeyond.transport.client.rail.model.RailGeometryParams
 import net.minecraft.client.data.models.BlockModelGenerators
 import net.minecraft.client.data.models.model.ModelInstance
 import net.minecraft.resources.Identifier
-import kotlin.math.sqrt
 
 /**
  * Programmatic track model generation.
@@ -36,42 +36,6 @@ import kotlin.math.sqrt
  * mapping in [ModModelProvider] (NW_SE unrotated, NE_SW rotated 90 degrees) stays valid.
  */
 object TrackModelGenerator {
-    /** Rail center distance: 24 px = 1.5 blocks (matches `block/track`). */
-    private const val GAUGE = 24.0f
-
-    /** Rail web cross-section: 2 px wide, 2.4 px tall (y 1.5..3.9). */
-    private const val RAIL_W = 2.0f
-    private const val RAIL_BOTTOM = 1.5f
-    private const val RAIL_TOP = 3.9f
-
-    /** Rail base/top caps: 3 px wide, 0.5 px tall. */
-    private const val CAP_W = 3.0f
-    private const val CAP_H = 0.5f
-
-    /** Half-length of the rail elements along the local track axis, exactly the distance from the
-     * block center to a corner (8*sqrt(2) px). Adjacent cells' rails then meet precisely at the
-     * seam plane: the end caps coincide back-to-back and side faces abut, so the rail renders as
-     * one continuous piece with no seam and no z-fighting (opposite-facing coincident faces are
-     * resolved by backface culling). */
-    private val TRACK_HALF_LENGTH: Float = 8f * sqrt(2f)
-
-    /** Sleeper slab: 33 px long (overhangs into neighboring cells by design), 1 px tall, 3 px wide. */
-    private const val SLEEPER_LEN = 33.0f
-    private const val SLEEPER_H = 1.0f
-    private const val SLEEPER_W = 3.0f
-
-    /** Along-track spacing of the three sleepers. The diagonal cell pitch is 16*sqrt(2) px; three
-     * sleepers per cell at spacing 16*sqrt(2)/3 keep the sleeper rhythm uniform across cells. The
-     * straight track's 8 px spacing cannot be used here: 8 does not divide the diagonal pitch, so
-     * an 8 px rhythm would leave a visible gap at every cell boundary. */
-    private val SLEEPER_SPACING: Float = 16f * sqrt(2f) / 3f
-
-    /** Rotation angle for the diagonal variant, in degrees. */
-    private const val DIAGONAL_ANGLE = 45.0f
-
-    /** Rotation origin: the block center. The y coordinate is irrelevant for a Y-axis rotation. */
-    private val ORIGIN = floatArrayOf(8f, 8f, 8f)
-
     /** Emits the diagonal 45 straight track model (`block/track_diagonal`). */
     fun generateDiagonal(blockModels: BlockModelGenerators) {
         val id = Identifier.fromNamespaceAndPath(Ids.MOD_ID, "block/track_diagonal")
@@ -87,53 +51,47 @@ object TrackModelGenerator {
         root.add("textures", textures)
 
         val elements = JsonArray()
-        val halfGauge = GAUGE / 2f
-        val halfLength = TRACK_HALF_LENGTH
-        val halfSleeper = SLEEPER_LEN / 2f
-        val halfSleeperW = SLEEPER_W / 2f
+        val halfGauge = RailGeometryParams.GAUGE / 2f
+        val halfLength = RailGeometryParams.TRACK_HALF_LENGTH
         for (side in listOf(-1f, 1f)) {
             val railCenter = 8f + side * halfGauge
             // Rail web, base cap, top cap.
             elements.add(
                 box(
-                    railCenter - RAIL_W / 2f, RAIL_BOTTOM, 8f - halfLength,
-                    railCenter + RAIL_W / 2f, RAIL_TOP, 8f + halfLength, "rail"
+                    railCenter - RailGeometryParams.RAIL_W / 2f, RailGeometryParams.RAIL_BOTTOM, 8f - halfLength,
+                    railCenter + RailGeometryParams.RAIL_W / 2f, RailGeometryParams.RAIL_TOP, 8f + halfLength
                 )
             )
             elements.add(
                 box(
-                    railCenter - CAP_W / 2f, RAIL_BOTTOM - CAP_H, 8f - halfLength,
-                    railCenter + CAP_W / 2f, RAIL_BOTTOM, 8f + halfLength, "rail"
+                    railCenter - RailGeometryParams.CAP_W / 2f,
+                    RailGeometryParams.RAIL_BOTTOM - RailGeometryParams.CAP_H,
+                    8f - halfLength,
+                    railCenter + RailGeometryParams.CAP_W / 2f,
+                    RailGeometryParams.RAIL_BOTTOM,
+                    8f + halfLength
                 )
             )
             elements.add(
                 box(
-                    railCenter - CAP_W / 2f, RAIL_TOP, 8f - halfLength,
-                    railCenter + CAP_W / 2f, RAIL_TOP + CAP_H, 8f + halfLength, "rail"
+                    railCenter - RailGeometryParams.CAP_W / 2f, RailGeometryParams.RAIL_TOP, 8f - halfLength,
+                    railCenter + RailGeometryParams.CAP_W / 2f, RailGeometryParams.RAIL_TOP + RailGeometryParams.CAP_H,
+                    8f + halfLength
                 )
             )
         }
-        for (offset in listOf(-SLEEPER_SPACING, 0f, SLEEPER_SPACING)) {
-            elements.add(
-                box(
-                    8f - halfSleeper, 0f, 8f + offset - halfSleeperW,
-                    8f + halfSleeper, SLEEPER_H, 8f + offset + halfSleeperW, "sleeper"
-                )
-            )
+        for (offset in listOf(-RailGeometryParams.SLEEPER_SPACING, 0f, RailGeometryParams.SLEEPER_SPACING)) {
+            // Sleepers use the same 16px-period UV convention as the hand-made straight model (block/track): one
+            // texture period along the 33px long axis, a 1.5px v offset on the side faces. Using the box-extent UVs
+            // (33px) here would sample two plank periods per sleeper and make the diagonal sleepers look denser than
+            // the straight ones. The runtime dynamic model (TrackCellDynamicModel.faceUvs) mirrors exactly this.
+            elements.add(sleeperBox(offset))
         }
         root.add("elements", elements)
         return root
     }
 
-    private fun box(
-        fromX: Float,
-        fromY: Float,
-        fromZ: Float,
-        toX: Float,
-        toY: Float,
-        toZ: Float,
-        texture: String,
-    ): JsonObject {
+    private fun box(fromX: Float, fromY: Float, fromZ: Float, toX: Float, toY: Float, toZ: Float): JsonObject {
         val dx = toX - fromX
         val dy = toY - fromY
         val dz = toZ - fromZ
@@ -141,22 +99,26 @@ object TrackModelGenerator {
         element.add("from", vec(fromX, fromY, fromZ))
         element.add("to", vec(toX, toY, toZ))
         val rotation = JsonObject()
-        rotation.add("origin", vec(ORIGIN[0], ORIGIN[1], ORIGIN[2]))
+        rotation.add(
+            "origin",
+            vec(RailGeometryParams.ORIGIN_X, RailGeometryParams.ORIGIN_Y, RailGeometryParams.ORIGIN_Z),
+        )
         rotation.addProperty("axis", "y")
-        rotation.addProperty("angle", DIAGONAL_ANGLE)
+        rotation.addProperty("angle", RailGeometryParams.DIAGONAL_ANGLE)
         element.add("rotation", rotation)
         val faces = JsonObject()
-        faces.add("north", face(dx, dy, texture))
-        faces.add("south", face(dx, dy, texture))
-        faces.add("east", face(dz, dy, texture))
-        faces.add("west", face(dz, dy, texture))
-        faces.add("up", face(dx, dz, texture))
-        faces.add("down", face(dx, dz, texture))
+        faces.add("north", railFace(dx, dy))
+        faces.add("south", railFace(dx, dy))
+        faces.add("east", railFace(dz, dy))
+        faces.add("west", railFace(dz, dy))
+        faces.add("up", railFace(dx, dz))
+        faces.add("down", railFace(dx, dz))
         element.add("faces", faces)
         return element
     }
 
-    private fun face(uvW: Float, uvH: Float, texture: String): JsonObject {
+    /** Rail face: box-extent UVs on the rail texture. */
+    private fun railFace(uvW: Float, uvH: Float): JsonObject {
         val face = JsonObject()
         val uv = JsonArray()
         uv.add(0f)
@@ -164,7 +126,47 @@ object TrackModelGenerator {
         uv.add(uvW)
         uv.add(uvH)
         face.add("uv", uv)
-        face.addProperty("texture", "#$texture")
+        face.addProperty("texture", "#rail")
+        return face
+    }
+
+    /** Sleeper slab element (long axis X, 33px) with the straight-model UV convention; centered at z = 8 + offset. */
+    private fun sleeperBox(offset: Float): JsonObject {
+        val halfSleeper = RailGeometryParams.SLEEPER_LEN / 2f
+        val halfSleeperW = RailGeometryParams.SLEEPER_W / 2f
+        val element = JsonObject()
+        element.add("from", vec(8f - halfSleeper, 0f, 8f + offset - halfSleeperW))
+        element.add("to", vec(8f + halfSleeper, RailGeometryParams.SLEEPER_H, 8f + offset + halfSleeperW))
+        val rotation = JsonObject()
+        rotation.add(
+            "origin",
+            vec(RailGeometryParams.ORIGIN_X, RailGeometryParams.ORIGIN_Y, RailGeometryParams.ORIGIN_Z),
+        )
+        rotation.addProperty("axis", "y")
+        rotation.addProperty("angle", RailGeometryParams.DIAGONAL_ANGLE)
+        element.add("rotation", rotation)
+        val faces = JsonObject()
+        // Long axis is X (33px), width is Z (3px), height is Y (1px); UVs match block/track's sleeper slabs.
+        faces.add("north", sleeperFace(16f, 0.5f, 1.5f))
+        faces.add("south", sleeperFace(16f, 0.5f, 1.5f))
+        faces.add("east", sleeperFace(3f, 0.5f, 1.5f))
+        faces.add("west", sleeperFace(3f, 0.5f, 1.5f))
+        faces.add("up", sleeperFace(16f, 3f, 0f))
+        faces.add("down", sleeperFace(16f, 3f, 0f))
+        element.add("faces", faces)
+        return element
+    }
+
+    /** Sleeper face: {@code [0, vOffset, uvW, vOffset + uvH]} on the sleeper texture, matching block/track. */
+    private fun sleeperFace(uvW: Float, uvH: Float, vOffset: Float): JsonObject {
+        val face = JsonObject()
+        val uv = JsonArray()
+        uv.add(0f)
+        uv.add(vOffset)
+        uv.add(uvW)
+        uv.add(vOffset + uvH)
+        face.add("uv", uv)
+        face.addProperty("texture", "#sleeper")
         return face
     }
 

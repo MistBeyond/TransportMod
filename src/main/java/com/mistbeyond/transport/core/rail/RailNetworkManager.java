@@ -30,11 +30,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public final class RailNetworkManager implements RailNetworkService {
+public class RailNetworkManager implements RailNetworkService, AutomaticTrainDriver.Host {
     private final ServerLevel level;
     private final DispatchService dispatch;
     private final Map<RailTrainId, RailTrainAggregate> trains = new LinkedHashMap<>();
     private final Set<GridPos> dirtyCells = new LinkedHashSet<>();
+    private final AutomaticTrainDriver automaticDriver = new AutomaticTrainDriver();
 
     private RailStationLocator stationLocator = ignored -> Optional.empty();
     @Nullable
@@ -47,6 +48,13 @@ public final class RailNetworkManager implements RailNetworkService {
         this.level = level;
         RailPathfinder pathfinder = new ShortestPathRouter();
         this.dispatch = new DispatchServiceImpl(this.graph, pathfinder);
+    }
+
+    /**
+     * Advances all automatic trains once per server tick.
+     */
+    public void tickAutomation() {
+        automaticDriver.tick(this);
     }
 
     public static RailNetworkManager of(ServerLevel level) {
@@ -88,6 +96,39 @@ public final class RailNetworkManager implements RailNetworkService {
 
     public DispatchService dispatch() {
         return dispatch;
+    }
+
+    @Override
+    public RailGraphView graph() {
+        return graph;
+    }
+
+    @Override
+    public List<RailTrainAggregate> trains() {
+        return List.copyOf(trains.values());
+    }
+
+    @Override
+    public void update(RailTrainAggregate train) {
+        trains.put(train.id(), train);
+        markSavedDataDirty();
+    }
+
+    @Override
+    public void restartSchedule(RailTrainId trainId) {
+        RailTrainAggregate train = trains.get(trainId);
+        if (train == null || train.schedule().isEmpty()) {
+            return;
+        }
+        dispatch.release(trainId);
+        startSchedule(trainId, train.schedule().orElseThrow());
+    }
+
+    /**
+     * World-space position of an automatic train for entity presentation; empty when the train is not automatic.
+     */
+    public Optional<AutomaticTrainDriver.TrainPresentation> automaticPresentation(RailTrainId trainId) {
+        return automaticDriver.presentation(this, trainId);
     }
 
     public RailGraphView graphAt(GridPos center) {
@@ -153,6 +194,7 @@ public final class RailNetworkManager implements RailNetworkService {
         }
 
         dispatch.release(trainId);
+        automaticDriver.discard(trainId);
         trains.put(trainId, train.withControlMode(RailControlMode.MANUAL));
         markSavedDataDirty();
         return Optional.empty();
@@ -205,6 +247,12 @@ public final class RailNetworkManager implements RailNetworkService {
         }
         if (result instanceof DispatchService.DispatchResult.Accepted accepted) {
             trains.put(trainId, train.withSchedule(schedule, accepted.lock().route(), 0));
+            // The train already stands at its starting station; it must not dwell there again.
+            List<RailNodeId> driverStops = new ArrayList<>(stopNodes);
+            if (driverStops.size() > 1 && driverStops.getFirst().equals(start)) {
+                driverStops.removeFirst();
+            }
+            automaticDriver.onScheduleStarted(trainId, driverStops);
             markSavedDataDirty();
             return Optional.empty();
         }
@@ -217,7 +265,10 @@ public final class RailNetworkManager implements RailNetworkService {
             return;
         }
         dispatch.release(trainId);
-        trains.put(trainId, train.asDerailed());
+        automaticDriver.discard(trainId);
+        // Derailment pauses the automatic schedule and releases the route/reservations; the train returns to manual
+        // so it cannot keep driving on its own after being righted.
+        trains.put(trainId, train.asDerailed().withControlMode(RailControlMode.MANUAL));
         markSavedDataDirty();
     }
 
@@ -232,6 +283,7 @@ public final class RailNetworkManager implements RailNetworkService {
 
     public void removeTrain(RailTrainId trainId) {
         dispatch.release(trainId);
+        automaticDriver.discard(trainId);
         trains.remove(trainId);
         markSavedDataDirty();
     }

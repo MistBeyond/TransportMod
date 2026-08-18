@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public final class DispatchServiceImpl implements DispatchService {
+public class DispatchServiceImpl implements DispatchService {
     private final RailGraphView graph;
     private final RailPathfinder pathfinder;
     private final Map<RailTrainId, RouteLock> locks = new HashMap<>();

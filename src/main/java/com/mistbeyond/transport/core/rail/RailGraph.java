@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public final class RailGraph implements RailGraphView {
+public class RailGraph implements RailGraphView {
     private static final double EPSILON = 1.0E-6;
 
     private final Set<RailNode> nodes;

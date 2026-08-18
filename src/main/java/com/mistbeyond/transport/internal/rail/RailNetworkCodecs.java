@@ -11,7 +11,7 @@ import com.mistbeyond.transport.api.rail.station.RailStationId;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-public final class RailNetworkCodecs {
+public class RailNetworkCodecs {
     public static final Codec<GridPos> GRID_POS = RecordCodecBuilder.create(instance -> instance.group(
             Codec.INT.fieldOf("x").forGetter(GridPos::x),
             Codec.INT.fieldOf("y").forGetter(GridPos::y),

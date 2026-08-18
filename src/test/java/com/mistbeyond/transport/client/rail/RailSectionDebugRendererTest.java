@@ -163,8 +163,10 @@ class RailSectionDebugRendererTest {
         assertEquals(endpoints.length / 2, section.tracks().size());
         for (int i = 0; i < section.tracks().size(); i++) {
             RailSectionDebugRenderer.TrackVisual track = section.tracks().get(i);
-            assertTrue(equalsPos(endpoints[i * 2], track.start()));
-            assertTrue(equalsPos(endpoints[i * 2 + 1], track.end()));
+            assertTrue(equalsPos(endpoints[i * 2], track.start()),
+                    "track " + i + " start: expected " + endpoints[i * 2] + " but was " + track.start());
+            assertTrue(equalsPos(endpoints[i * 2 + 1], track.end()),
+                    "track " + i + " end: expected " + endpoints[i * 2 + 1] + " but was " + track.end());
         }
     }
 

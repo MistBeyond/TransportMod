@@ -1,5 +1,7 @@
 package com.mistbeyond.transport.entity.rail;
 
+import com.mistbeyond.transport.api.rail.RailTrainSnapshot;
+import com.mistbeyond.transport.api.rail.dispatch.RailControlMode;
 import com.mistbeyond.transport.api.rail.graph.GridPos;
 import com.mistbeyond.transport.api.rail.graph.RailEdgeId;
 import com.mistbeyond.transport.api.rail.graph.RailEdgeView;
@@ -31,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @SuppressWarnings("resource")
 public class TestTrainEntity extends Entity {
@@ -78,6 +81,23 @@ public class TestTrainEntity extends Entity {
         if (this.level().isClientSide()) {
             this.interpolation.interpolate();
             return;
+        }
+        if (this.trainId != null && this.level() instanceof ServerLevel serverLevel) {
+            // Automatic trains are driven by the rail network manager; this entity is presentation only and follows
+            // the computed position. Manual mode keeps the entity-driven graph traversal below.
+            RailNetworkManager manager = RailNetworkManager.of(serverLevel);
+            Optional<RailTrainSnapshot> snapshot = manager.train(this.trainId);
+            if (snapshot.isPresent()
+                    && snapshot.get().controlMode() == RailControlMode.AUTOMATIC
+                    && !snapshot.get().derailed()) {
+                manager.automaticPresentation(this.trainId).ifPresent(presentation -> {
+                    this.setOldPosAndRot();
+                    this.setPos(presentation.x(), presentation.y(), presentation.z());
+                    this.setYRot(presentation.yawDegrees());
+                    this.setDeltaMovement(0.0, 0.0, 0.0);
+                });
+                return;
+            }
         }
         if (this.graph == null) {
             return;
@@ -405,7 +425,7 @@ public class TestTrainEntity extends Entity {
     ) {
     }
 
-    static final class EdgeState {
+    static class EdgeState {
         final RailEdgeId edgeId;
         final RailNodeId from;
         final RailNodeId to;
@@ -438,7 +458,7 @@ public class TestTrainEntity extends Entity {
      * ticks. This handler instead moves a constant fraction of the total step per tick, matching the server's constant
      * speed. {@code STEPS} must match the entity type's tracking update interval (see {@code Entities.TEST_TRAIN}).
      */
-    static final class TrainInterpolation extends InterpolationHandler {
+    static class TrainInterpolation extends InterpolationHandler {
         private static final int STEPS = 3;
 
         private final TestTrainEntity train;

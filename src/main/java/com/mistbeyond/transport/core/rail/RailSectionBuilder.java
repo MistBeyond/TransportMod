@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-public final class RailSectionBuilder {
+public class RailSectionBuilder {
     private static final double EPSILON = 1.0E-6;
 
     private RailSectionBuilder() {

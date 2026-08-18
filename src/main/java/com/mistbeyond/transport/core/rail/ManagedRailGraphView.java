@@ -14,7 +14,7 @@ import com.mistbeyond.transport.api.rail.section.SignalView;
 import java.util.Optional;
 import java.util.Set;
 
-final class ManagedRailGraphView implements RailGraphView {
+class ManagedRailGraphView implements RailGraphView {
     private RailGraphView delegate = RailGraph.empty();
 
     void update(RailGraphView delegate) {

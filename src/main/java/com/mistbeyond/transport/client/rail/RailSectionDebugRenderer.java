@@ -5,6 +5,8 @@ import com.mistbeyond.transport.api.rail.graph.GridPos;
 import com.mistbeyond.transport.api.rail.graph.RailGraphView;
 import com.mistbeyond.transport.api.rail.graph.TrackSegmentId;
 import com.mistbeyond.transport.api.rail.section.RailSectionView;
+import com.mistbeyond.transport.api.rail.section.SignalAspect;
+import com.mistbeyond.transport.api.rail.section.SignalId;
 import com.mistbeyond.transport.block.rail.RailTrackCellBlock;
 import com.mistbeyond.transport.core.rail.RailGraphCollector;
 import net.minecraft.client.Minecraft;
@@ -33,7 +35,7 @@ import java.util.Set;
  * once per second or when the camera moves, and emitted boxes are frustum-culled, so the overlay costs almost nothing
  * per frame.
  */
-public final class RailSectionDebugRenderer implements DebugRenderer.SimpleDebugRenderer {
+public class RailSectionDebugRenderer implements DebugRenderer.SimpleDebugRenderer {
     /**
      * Scan half-extent around the camera, in blocks.
      */
@@ -58,6 +60,20 @@ public final class RailSectionDebugRenderer implements DebugRenderer.SimpleDebug
     private static final int SIGNAL_FILL = ARGB.colorFromFloat(0.25F, 1.0F, 1.0F, 1.0F);
     private static final int SIGNAL_STROKE = ARGB.colorFromFloat(1.0F, 1.0F, 1.0F, 1.0F);
     private static final int SIGNAL_ARROW = ARGB.colorFromFloat(1.0F, 1.0F, 1.0F, 1.0F);
+    /**
+     * Signal marker palette: white when the state has not been synced yet, red/green from the resolved aspect
+     * (player-visible signal state is limited to RED and GREEN, see docs/roadmap/rail/sections.md).
+     */
+    private static final int[] SIGNAL_RED_PALETTE = {
+            ARGB.colorFromFloat(0.25F, 1.0F, 0.25F, 0.25F),
+            ARGB.colorFromFloat(1.0F, 1.0F, 0.25F, 0.25F),
+            ARGB.colorFromFloat(1.0F, 1.0F, 0.25F, 0.25F)
+    };
+    private static final int[] SIGNAL_GREEN_PALETTE = {
+            ARGB.colorFromFloat(0.25F, 0.3F, 1.0F, 0.3F),
+            ARGB.colorFromFloat(1.0F, 0.3F, 1.0F, 0.3F),
+            ARGB.colorFromFloat(1.0F, 0.3F, 1.0F, 0.3F)
+    };
     /**
      * Half cross-section of a track bar: 0.25 blocks across and 0.1 blocks tall, matching the cardinal bars.
      */
@@ -162,14 +178,14 @@ public final class RailSectionDebugRenderer implements DebugRenderer.SimpleDebug
         for (int i = 0; i < sorted.size(); i++) {
             RailSectionView section = sorted.get(i);
             List<TrackVisual> tracks = new ArrayList<>();
-            for (TrackSegmentId segmentId : section.segments()) {
-                graph.segmentById(segmentId)
-                        .flatMap(segment -> graph.edgeById(segment.edgeId()))
-                        .ifPresent(edge -> tracks.add(new TrackVisual(
-                                edge.placement().start(),
-                                edge.placement().end()
-                        )));
-            }
+            section.segments().stream()
+                    .sorted(Comparator.comparing(TrackSegmentId::value))
+                    .forEach(segmentId -> graph.segmentById(segmentId)
+                            .flatMap(segment -> graph.edgeById(segment.edgeId()))
+                            .ifPresent(edge -> tracks.add(new TrackVisual(
+                                    edge.placement().start(),
+                                    edge.placement().end()
+                            ))));
             if (tracks.isEmpty()) {
                 continue;
             }
@@ -238,16 +254,33 @@ public final class RailSectionDebugRenderer implements DebugRenderer.SimpleDebug
         }
         for (RenderedSignal signal : signals) {
             BlockPos cell = signal.cell();
+            SignalAspect aspect = RailSignalsCache.aspectOf(new SignalId(signal.id()));
+            int fill = SIGNAL_FILL;
+            int stroke = SIGNAL_STROKE;
+            int arrow = SIGNAL_ARROW;
+            if (aspect == SignalAspect.RED) {
+                fill = SIGNAL_RED_PALETTE[0];
+                stroke = SIGNAL_RED_PALETTE[1];
+                arrow = SIGNAL_RED_PALETTE[2];
+            } else if (aspect == SignalAspect.GREEN) {
+                fill = SIGNAL_GREEN_PALETTE[0];
+                stroke = SIGNAL_GREEN_PALETTE[1];
+                arrow = SIGNAL_GREEN_PALETTE[2];
+            }
             Gizmos.cuboid(
                     new AABB(cell).deflate(0.25),
-                    GizmoStyle.strokeAndFill(SIGNAL_STROKE, 2.0F, SIGNAL_FILL)
+                    GizmoStyle.strokeAndFill(stroke, 2.0F, fill)
             );
             GridDirection direction = signal.direction();
             Vec3 start = Vec3.atCenterOf(cell).add(direction.dx() * 0.3, 0.0, direction.dz() * 0.3);
             Vec3 end = Vec3.atCenterOf(cell).add(direction.dx() * 0.75, 0.0, direction.dz() * 0.75);
-            Gizmos.arrow(start, end, SIGNAL_ARROW);
-            Gizmos.billboardTextOverBlock(signal.id(), cell, 0, SIGNAL_STROKE, 0.8F);
-            Gizmos.billboardTextOverBlock(signal.type() + " " + signal.direction(), cell, 1, SIGNAL_STROKE, 0.7F);
+            Gizmos.arrow(start, end, arrow);
+            Gizmos.billboardTextOverBlock(signal.id(), cell, 0, stroke, 0.8F);
+            String detail = signal.type() + " " + signal.direction();
+            if (aspect != null) {
+                detail += " " + aspect;
+            }
+            Gizmos.billboardTextOverBlock(detail, cell, 1, stroke, 0.7F);
         }
     }
 
