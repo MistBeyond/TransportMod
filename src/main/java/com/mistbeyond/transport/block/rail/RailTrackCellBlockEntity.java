@@ -26,22 +26,29 @@ public class RailTrackCellBlockEntity extends BlockEntity implements TrackCellDa
     public static final ModelProperty<TrackCellData> TRACK_CELL_MODEL_DATA = new ModelProperty<>();
 
     private Set<TrackPlacement> placements = Set.of();
-    private Optional<SignalPlacement> signal = Optional.empty();
+    private Set<SignalPlacement> signals = Set.of();
 
     public RailTrackCellBlockEntity(BlockPos worldPosition, BlockState blockState) {
         super(RailTrackCellBlockEntities.TRACK_CELL.get(), worldPosition, blockState);
     }
 
+    /**
+     * Backwards-compatible overload for single-signal callers.
+     */
     public void setData(Set<TrackPlacement> placements, Optional<SignalPlacement> signal) {
+        setData(placements, signal.map(Set::of).orElse(Set.of()));
+    }
+
+    public void setData(Set<TrackPlacement> placements, Set<SignalPlacement> signals) {
         this.placements = Set.copyOf(placements);
-        this.signal = signal;
+        this.signals = Set.copyOf(signals);
         setChanged();
         requestModelDataUpdate();
     }
 
     @Override
     public ModelData getModelData() {
-        return ModelData.of(TRACK_CELL_MODEL_DATA, new TrackCellDataRecord(cell(), placements, signal));
+        return ModelData.of(TRACK_CELL_MODEL_DATA, new TrackCellDataRecord(cell(), placements, signals));
     }
 
     @Override
@@ -56,21 +63,35 @@ public class RailTrackCellBlockEntity extends BlockEntity implements TrackCellDa
     }
 
     @Override
+    public Set<SignalPlacement> signals() {
+        return signals;
+    }
+
+    @Override
     public Optional<SignalPlacement> signal() {
-        return signal;
+        return signals.stream().findFirst();
     }
 
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
         this.placements = Set.copyOf(input.read("Placements", TrackPlacement.CODEC.listOf()).orElse(List.of()));
-        this.signal = input.read("Signal", SignalPlacement.CODEC);
+        // Backwards compatible: old saves used single "Signal", new saves use "Signals" list.
+        List<SignalPlacement> migrated = input.read("Signal", SignalPlacement.CODEC).map(List::of).orElse(List.of());
+        List<SignalPlacement> list = input.read("Signals", SignalPlacement.CODEC.listOf()).orElse(migrated);
+        this.signals = Set.copyOf(list);
     }
 
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
         output.store("Placements", TrackPlacement.CODEC.listOf(), placements.stream().toList());
-        signal.ifPresent(value -> output.store("Signal", SignalPlacement.CODEC, value));
+        if (!signals.isEmpty()) {
+            output.store("Signals", SignalPlacement.CODEC.listOf(), signals.stream().toList());
+            // Keep single "Signal" for backwards compatibility when exactly one signal exists (optional, not required for load).
+            if (signals.size() == 1) {
+                output.store("Signal", SignalPlacement.CODEC, signals.iterator().next());
+            }
+        }
     }
 }

@@ -24,12 +24,16 @@ Rail sections are the pieces of connected track that signals divide and trains r
   junction is the nearest routing node in the facing direction, which is unique because a chain has no other branch.
 - At most one signal may be placed per cell per facing direction; a bidirectional cell may hold two signals facing
   opposite directions. Adjacent cells are not distance-constrained, so zero-length sections cannot arise.
+- A signal's facing direction at placement is the player's look direction. Re-facing a signal is done only by breaking
+  and replacing it; there is no in-place rotation interaction.
 - Signal aspects are limited to `RED` and `GREEN`; a misconfigured signal additionally shows an `ERROR` indicator and
   behaves as `RED`.
 - Placement is permissive: signals are not rejected for misconfiguration. A signal shows the `ERROR` indicator and
   behaves as `RED` when its facing side has no track, or (path signals) its facing side never reaches a routing node.
   Repositioning or refacing the signal restores its normal indication. `ERROR` is a configuration/health indicator, not
   a third aspect.
+- The `ERROR` indicator is rendered as an exclamation overlay on the signal block's side and is also marked in the F3
+  debug overlay.
 - A path signal placed on a plain straight whose facing side never reaches a routing node is allowed but stays in the
   `ERROR` state until it is placed on a valid approach.
 - Complex signal aspects, additional signal types, and custom signal states are addon extension points.
@@ -46,9 +50,12 @@ Rail sections are the pieces of connected track that signals divide and trains r
   rules).
 - Trains whose paths do not conflict MAY traverse a junction simultaneously; a given conflict path admits one train at
   a time.
+- When multiple automatic trains compete for the same conflict path, the reservation grant follows first-come-first-
+  served order by request arrival; losing trains stop, wait, and retry per the runtime-contract wake-up rules.
 - Once a route reservation through the junction is granted, the related entrance signals turn `RED` until the train's
-  tail exits the junction; the full conflict-path reservation is then released as a whole (per-segment progressive
-  release is a future optimization).
+  tail exits the junction, defined as the set of cells the train's body occupies no longer intersecting the conflict
+  path; the full conflict-path reservation is then released as a whole (per-segment progressive release is a future
+  optimization).
 - Manual trains are not signal-constrained; see the runtime contract.
 - Signal state is derived from dispatch reservations, manual train presence, and derailment section locks.
 - Signals have a direction; bidirectional track needs signals in both directions.

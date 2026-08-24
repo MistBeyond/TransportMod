@@ -22,6 +22,7 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -30,13 +31,13 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jspecify.annotations.Nullable;
 
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 @RegisterBlock
-public class RailTrackCellBlock extends Block {
+public class RailTrackCellBlock extends Block implements EntityBlock {
     /**
      * Stores one of the four track axes (N–S, E–W, NE–SW, NW–SE), not eight one-way directions: a simple cell is a
      * bidirectional segment, so each pair of opposite directions is equivalent (see ADR 0005 and
@@ -47,6 +48,15 @@ public class RailTrackCellBlock extends Block {
     public RailTrackCellBlock(BlockBehaviour.Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(DIRECTION, TrackAxis.E_W));
+    }
+
+    @Override
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        // Per runtime-contract: a simple cell (one straight/diagonal axis, no signal) MUST NOT have a BE.
+        // A complex cell (multiple placements, curve, crossing, or signal) MUST have a BE. The block therefore
+        // returns null for the initial simple placement; complex upgrades are created explicitly by signal
+        // placement (simple→complex) and removed on downgrade (complex→simple).
+        return null;
     }
 
     @Override
@@ -107,9 +117,9 @@ public class RailTrackCellBlock extends Block {
 
                 BlockState state = level.getBlockState(pos);
                 if (!(state.getBlock() instanceof RailTrackCellBlock)) {
-                    return new TrackCellDataRecord(cell, Set.of(), Optional.empty());
+                    return new TrackCellDataRecord(cell, Set.of(), Set.of());
                 }
-                return new TrackCellDataRecord(cell, placementsFor(cell, state.getValue(DIRECTION)), Optional.empty());
+                return new TrackCellDataRecord(cell, placementsFor(cell, state.getValue(DIRECTION)), Set.of());
             }
 
             @Override
@@ -118,8 +128,8 @@ public class RailTrackCellBlock extends Block {
             }
 
             @Override
-            public Optional<SignalPlacement> signalAt(GridPos cell) {
-                return cellDataAt(cell).signal();
+            public Set<SignalPlacement> signalsAt(GridPos cell) {
+                return cellDataAt(cell).signals();
             }
         };
     }
@@ -187,6 +197,21 @@ public class RailTrackCellBlock extends Block {
             default -> throw new IllegalArgumentException("unreachable yaw index: " + index);
         };
         return TrackAxis.from(direction);
+    }
+
+    public static GridDirection directionFromYaw(float yaw) {
+        int index = Math.floorMod(Math.round(yaw / 45.0F), 8);
+        return switch (index) {
+            case 0 -> GridDirection.SOUTH;
+            case 1 -> GridDirection.SOUTH_WEST;
+            case 2 -> GridDirection.WEST;
+            case 3 -> GridDirection.NORTH_WEST;
+            case 4 -> GridDirection.NORTH;
+            case 5 -> GridDirection.NORTH_EAST;
+            case 6 -> GridDirection.EAST;
+            case 7 -> GridDirection.SOUTH_EAST;
+            default -> throw new IllegalArgumentException("unreachable yaw index: " + index);
+        };
     }
 
     private static void markManagerDirty(Level level, BlockPos pos) {

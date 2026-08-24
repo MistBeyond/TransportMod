@@ -8,5 +8,13 @@ public interface TrackCellData {
 
     Set<TrackPlacement> placements();
 
-    Optional<SignalPlacement> signal();
+    Set<SignalPlacement> signals();
+
+    /**
+     * Legacy single-signal accessor for backwards compatibility: returns an arbitrary signal when the cell
+     * contains one, otherwise empty. New code should use {@link #signals()}.
+     */
+    default Optional<SignalPlacement> signal() {
+        return signals().stream().findFirst();
+    }
 }

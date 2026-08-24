@@ -1,9 +1,11 @@
 package com.mistbeyond.transport.client.rail.model;
 
 import com.mistbeyond.transport.api.rail.graph.TrackAxis;
+import com.mistbeyond.transport.api.rail.graph.GridDirection;
 import com.mistbeyond.transport.api.rail.graph.TrackCellData;
 import com.mistbeyond.transport.api.rail.graph.TrackPlacement;
 import com.mistbeyond.transport.api.rail.graph.TrackType;
+import com.mistbeyond.transport.api.rail.section.SignalType;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -36,6 +38,8 @@ public class TrackCellGeometry {
 
     private static final String RAIL = "rail";
     private static final String SLEEPER = "sleeper";
+    private static final String SIGNAL_BLOCK = "signal_block";
+    private static final String SIGNAL_PATH = "signal_path";
     private static final float BLOCK_CENTER = 8.0F;
     /**
      * Sleeper slab overhang: 33 px long so it spans the full 16 px cell and 8.5 px into each neighbor (matches
@@ -82,6 +86,11 @@ public class TrackCellGeometry {
             TrackAxis axis = TrackAxis.from(placement.direction());
             if (seenAxes.add(axis)) {
                 result.addAll(rotated(axis.diagonal() ? DIAGONAL : STRAIGHT, angleFor(axis)));
+            }
+        }
+        if (!data.signals().isEmpty()) {
+            for (var signal : data.signals()) {
+                result.addAll(signalElements(signal.direction(), signal.type()));
             }
         }
         return List.copyOf(result);
@@ -148,6 +157,25 @@ public class TrackCellGeometry {
                 SLEEPER_X1, RailGeometryParams.SLEEPER_H, zCenter + SLEEPER_W_HALF,
                 0.0F, SLEEPER
         ));
+    }
+
+    private static List<Element> signalElements(GridDirection direction, SignalType type) {
+        // Placeholder signal post: 2x2 footprint, 8 px tall, placed at the cell edge the signal faces.
+        String tex = type == SignalType.PATH ? SIGNAL_PATH : SIGNAL_BLOCK;
+        float h = 8.0F;
+        float y0 = 2.0F;
+        float y1 = y0 + h;
+        // 2 px thick post centered on the edge.
+        return switch (direction) {
+            case NORTH -> List.of(new Element(7.0F, y0, 0.0F, 9.0F, y1, 2.0F, 0.0F, tex));
+            case SOUTH -> List.of(new Element(7.0F, y0, 14.0F, 9.0F, y1, 16.0F, 0.0F, tex));
+            case EAST -> List.of(new Element(14.0F, y0, 7.0F, 16.0F, y1, 9.0F, 0.0F, tex));
+            case WEST -> List.of(new Element(0.0F, y0, 7.0F, 2.0F, y1, 9.0F, 0.0F, tex));
+            case NORTH_EAST -> List.of(new Element(14.0F, y0, 0.0F, 16.0F, y1, 2.0F, 0.0F, tex));
+            case SOUTH_EAST -> List.of(new Element(14.0F, y0, 14.0F, 16.0F, y1, 16.0F, 0.0F, tex));
+            case SOUTH_WEST -> List.of(new Element(0.0F, y0, 14.0F, 2.0F, y1, 16.0F, 0.0F, tex));
+            case NORTH_WEST -> List.of(new Element(0.0F, y0, 0.0F, 2.0F, y1, 2.0F, 0.0F, tex));
+        };
     }
 
     private static List<Element> rotated(List<Element> elements, float angleDegrees) {

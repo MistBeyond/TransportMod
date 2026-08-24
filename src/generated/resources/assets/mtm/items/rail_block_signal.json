@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "mtm:item/rail_block_signal"
+  }
+}

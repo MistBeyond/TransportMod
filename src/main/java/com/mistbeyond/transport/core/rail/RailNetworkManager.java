@@ -3,32 +3,15 @@ package com.mistbeyond.transport.core.rail;
 import com.mistbeyond.transport.api.rail.RailNetworkService;
 import com.mistbeyond.transport.api.rail.RailNetworkSnapshot;
 import com.mistbeyond.transport.api.rail.RailTrainSnapshot;
-import com.mistbeyond.transport.api.rail.dispatch.DispatchService;
-import com.mistbeyond.transport.api.rail.dispatch.PathfindingOptions;
-import com.mistbeyond.transport.api.rail.dispatch.RailControlMode;
-import com.mistbeyond.transport.api.rail.dispatch.RailPathfinder;
-import com.mistbeyond.transport.api.rail.dispatch.RailTrainId;
-import com.mistbeyond.transport.api.rail.dispatch.RailTrainSchedule;
-import com.mistbeyond.transport.api.rail.dispatch.RouteRequest;
-import com.mistbeyond.transport.api.rail.dispatch.StopPlan;
-import com.mistbeyond.transport.api.rail.graph.GridPos;
-import com.mistbeyond.transport.api.rail.graph.RailGraphView;
-import com.mistbeyond.transport.api.rail.graph.RailNodeId;
-import com.mistbeyond.transport.api.rail.graph.RailNodeView;
-import com.mistbeyond.transport.api.rail.graph.TrackGraphSource;
+import com.mistbeyond.transport.api.rail.dispatch.*;
+import com.mistbeyond.transport.api.rail.graph.*;
 import com.mistbeyond.transport.api.rail.station.RailStationLocator;
 import com.mistbeyond.transport.internal.rail.RailNetworkSavedData;
 import com.mistbeyond.transport.internal.rail.RailNetworkState;
 import net.minecraft.server.level.ServerLevel;
 import org.jspecify.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class RailNetworkManager implements RailNetworkService, AutomaticTrainDriver.Host {
     private final ServerLevel level;
@@ -36,13 +19,12 @@ public class RailNetworkManager implements RailNetworkService, AutomaticTrainDri
     private final Map<RailTrainId, RailTrainAggregate> trains = new LinkedHashMap<>();
     private final Set<GridPos> dirtyCells = new LinkedHashSet<>();
     private final AutomaticTrainDriver automaticDriver = new AutomaticTrainDriver();
-
+    private final ManagedRailGraphView graph = new ManagedRailGraphView();
     private RailStationLocator stationLocator = ignored -> Optional.empty();
     @Nullable
     private RailNetworkSavedData savedData;
     @Nullable
     private TrackGraphSource source;
-    private final ManagedRailGraphView graph = new ManagedRailGraphView();
 
     public RailNetworkManager(ServerLevel level) {
         this.level = level;
@@ -50,15 +32,15 @@ public class RailNetworkManager implements RailNetworkService, AutomaticTrainDri
         this.dispatch = new DispatchServiceImpl(this.graph, pathfinder);
     }
 
+    public static RailNetworkManager of(ServerLevel level) {
+        return RailNetworkSavedData.managerOf(level);
+    }
+
     /**
      * Advances all automatic trains once per server tick.
      */
     public void tickAutomation() {
         automaticDriver.tick(this);
-    }
-
-    public static RailNetworkManager of(ServerLevel level) {
-        return RailNetworkSavedData.managerOf(level);
     }
 
     public void attachSavedData(RailNetworkSavedData savedData) {
@@ -94,13 +76,13 @@ public class RailNetworkManager implements RailNetworkService, AutomaticTrainDri
         return level;
     }
 
-    public DispatchService dispatch() {
-        return dispatch;
-    }
-
     @Override
     public RailGraphView graph() {
         return graph;
+    }
+
+    public DispatchService dispatch() {
+        return dispatch;
     }
 
     @Override
@@ -242,11 +224,11 @@ public class RailNetworkManager implements RailNetworkService, AutomaticTrainDri
                 PathfindingOptions.DEFAULT
         );
         DispatchService.DispatchResult result = dispatch.start(request);
-        if (result instanceof DispatchService.DispatchResult.Rejected rejected) {
-            return Optional.of(rejected.reason());
+        if (result instanceof DispatchService.DispatchResult.Rejected(String reason)) {
+            return Optional.of(reason);
         }
-        if (result instanceof DispatchService.DispatchResult.Accepted accepted) {
-            trains.put(trainId, train.withSchedule(schedule, accepted.lock().route(), 0));
+        if (result instanceof DispatchService.DispatchResult.Accepted(RouteLock lock)) {
+            trains.put(trainId, train.withSchedule(schedule, lock.route(), 0));
             // The train already stands at its starting station; it must not dwell there again.
             List<RailNodeId> driverStops = new ArrayList<>(stopNodes);
             if (driverStops.size() > 1 && driverStops.getFirst().equals(start)) {

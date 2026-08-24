@@ -4,6 +4,12 @@ Status: Accepted
 
 Date: 2026-08-17
 
+Revised: 2026-08-20 — The "Deferred as future work" item for precise tail computation below is superseded by
+ADR 0010: a train's tail has exited the junction when the set of cells its body occupies no longer intersects the
+conflict path, then the whole reservation is released. ADR 0010 also pins the ERROR visual form (block-side
+exclamation overlay plus an F3 marker) and re-facing (facing by the player's look direction, re-facing only by
+break-and-replace).
+
 ## Context
 
 ADR 0007 defined path-signal evaluation (atomic-eligibility `RED`/`GREEN`), concurrency, and blocked-train wake-up, but

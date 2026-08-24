@@ -15,8 +15,8 @@ class RailSignalsPayloadTest {
     @Test
     void roundTripsSignalStates() {
         RailSignalsPayload payload = new RailSignalsPayload(List.of(
-                new SignalState(new SignalId("sig-a"), SignalAspect.RED),
-                new SignalState(new SignalId("sig-b"), SignalAspect.GREEN)
+                new SignalState(new SignalId("sig-a"), SignalAspect.RED, false),
+                new SignalState(new SignalId("sig-b"), SignalAspect.GREEN, true)
         ));
 
         FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());

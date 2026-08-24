@@ -7,11 +7,15 @@ import java.util.Set;
 public interface TrackGraphSource {
     Set<TrackPlacement> placementsAt(GridPos cell);
 
+    default Set<SignalPlacement> signalsAt(GridPos cell) {
+        return Set.of();
+    }
+
     default Optional<SignalPlacement> signalAt(GridPos cell) {
-        return Optional.empty();
+        return signalsAt(cell).stream().findFirst();
     }
 
     default TrackCellData cellDataAt(GridPos cell) {
-        return new TrackCellDataRecord(cell, placementsAt(cell), signalAt(cell));
+        return new TrackCellDataRecord(cell, placementsAt(cell), signalsAt(cell));
     }
 }

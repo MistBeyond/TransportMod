@@ -1,5 +1,7 @@
 {
   "block.mtm.rail_track_cell": "Rail Track Cell",
   "entity.mtm.test_train": "Test Train",
+  "item.mtm.rail_block_signal": "Rail Block Signal",
+  "item.mtm.rail_path_signal": "Rail Path Signal",
   "item.mtm.test_train_spawner": "Test Train Spawner"
 }

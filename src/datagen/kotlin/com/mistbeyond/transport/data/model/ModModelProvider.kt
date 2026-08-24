@@ -53,6 +53,22 @@ class ModModelProvider(output: PackOutput) : ModelProvider(output, Ids.MOD_ID) {
             .orElseThrow()
             .value()
         itemModels.generateFlatItem(trainSpawner, net.minecraft.world.item.Items.MINECART, ModelTemplates.FLAT_ITEM)
+        // Placeholder item models for the two signal items: block signal (red) and path signal (amethyst).
+        // The real signal models are not ready yet, so we reference vanilla item textures as stand-ins via datagen
+        // (no handwritten JSON, per AGENTS.md). Fetch via BuiltInRegistries to cover @RegisterItem registration
+        // which is not reflected in Items.ITEMS DeferredHolder at datagen time.
+        val itemRegistry = net.minecraft.core.registries.BuiltInRegistries.ITEM
+        val signalPlaceholders = mapOf(
+            "rail_block_signal" to net.minecraft.world.item.Items.REDSTONE,
+            "rail_path_signal" to net.minecraft.world.item.Items.AMETHYST_SHARD
+        )
+        for ((id, texture) in signalPlaceholders) {
+            val key = Identifier.fromNamespaceAndPath(Ids.MOD_ID, id)
+            val item = itemRegistry.getValue(key)
+            if (item !== net.minecraft.world.item.Items.AIR) {
+                itemModels.generateFlatItem(item, texture, ModelTemplates.FLAT_ITEM)
+            }
+        }
     }
 
     override fun getKnownBlocks(): Stream<out Holder<Block>> = Blocks.BLOCKS.entries.stream()

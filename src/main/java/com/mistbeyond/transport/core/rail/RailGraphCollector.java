@@ -31,7 +31,13 @@ public class RailGraphCollector {
             if (!visited.add(pos) || source.placementsAt(pos).isEmpty()) {
                 continue;
             }
-            source.signalAt(pos).ifPresent(placement -> signals.add(signalFor(pos, placement)));
+            // Collect signals from both the new multi-signal API and the legacy single-signal API for backwards compatibility
+            // (tests that override signalAt). Deduplicate by id.
+            java.util.Set<SignalPlacement> placements = new java.util.HashSet<>(source.signalsAt(pos));
+            source.signalAt(pos).ifPresent(placements::add);
+            for (SignalPlacement placement : placements) {
+                signals.add(signalFor(pos, placement));
+            }
             RailNode node = nodeFor(nodes, pos);
             for (TrackPlacement placement : source.placementsAt(pos)) {
                 if (!pos.equals(placement.start())) {

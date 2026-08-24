@@ -75,6 +75,15 @@ public class RailSectionDebugRenderer implements DebugRenderer.SimpleDebugRender
             ARGB.colorFromFloat(1.0F, 0.3F, 1.0F, 0.3F)
     };
     /**
+     * Signal marker palette for the ERROR health state (a misconfigured signal): amber, so it is clearly neither red
+     * nor green. The ERROR indicator is carried out of band, not as a third aspect (ADR 0008).
+     */
+    private static final int[] SIGNAL_ERROR_PALETTE = {
+            ARGB.colorFromFloat(0.25F, 1.0F, 0.5F, 0.1F),
+            ARGB.colorFromFloat(1.0F, 1.0F, 0.6F, 0.1F),
+            ARGB.colorFromFloat(1.0F, 0.95F, 0.9F, 0.2F)
+    };
+    /**
      * Half cross-section of a track bar: 0.25 blocks across and 0.1 blocks tall, matching the cardinal bars.
      */
     private static final double BAR_HALF_WIDTH = 0.25;
@@ -255,10 +264,15 @@ public class RailSectionDebugRenderer implements DebugRenderer.SimpleDebugRender
         for (RenderedSignal signal : signals) {
             BlockPos cell = signal.cell();
             SignalAspect aspect = RailSignalsCache.aspectOf(new SignalId(signal.id()));
+            boolean error = RailSignalsCache.errorOf(new SignalId(signal.id()));
             int fill = SIGNAL_FILL;
             int stroke = SIGNAL_STROKE;
             int arrow = SIGNAL_ARROW;
-            if (aspect == SignalAspect.RED) {
+            if (error) {
+                fill = SIGNAL_ERROR_PALETTE[0];
+                stroke = SIGNAL_ERROR_PALETTE[1];
+                arrow = SIGNAL_ERROR_PALETTE[2];
+            } else if (aspect == SignalAspect.RED) {
                 fill = SIGNAL_RED_PALETTE[0];
                 stroke = SIGNAL_RED_PALETTE[1];
                 arrow = SIGNAL_RED_PALETTE[2];
@@ -267,10 +281,12 @@ public class RailSectionDebugRenderer implements DebugRenderer.SimpleDebugRender
                 stroke = SIGNAL_GREEN_PALETTE[1];
                 arrow = SIGNAL_GREEN_PALETTE[2];
             }
-            Gizmos.cuboid(
-                    new AABB(cell).deflate(0.25),
-                    GizmoStyle.strokeAndFill(stroke, 2.0F, fill)
-            );
+            GizmoStyle style = GizmoStyle.strokeAndFill(stroke, 2.0F, fill);
+            if ("PATH".equals(signal.type())) {
+                emitPathDiamond(cell, style);
+            } else {
+                Gizmos.cuboid(new AABB(cell).deflate(0.25), style);
+            }
             GridDirection direction = signal.direction();
             Vec3 start = Vec3.atCenterOf(cell).add(direction.dx() * 0.3, 0.0, direction.dz() * 0.3);
             Vec3 end = Vec3.atCenterOf(cell).add(direction.dx() * 0.75, 0.0, direction.dz() * 0.75);
@@ -280,8 +296,24 @@ public class RailSectionDebugRenderer implements DebugRenderer.SimpleDebugRender
             if (aspect != null) {
                 detail += " " + aspect;
             }
+            if (error) {
+                detail += " ERROR";
+            }
             Gizmos.billboardTextOverBlock(detail, cell, 1, stroke, 0.7F);
         }
+    }
+
+    /**
+     * Distinct F3 marker for path signals: a horizontal diamond (rhombus) on the cell plane, so path vs block signals
+     * are distinguishable at a glance (ADR 0008 C1). Block signals keep the translucent cuboid marker.
+     */
+    private static void emitPathDiamond(BlockPos cell, GizmoStyle style) {
+        Vec3 center = Vec3.atCenterOf(cell).add(0.0, 0.08, 0.0);
+        Vec3 north = center.add(0.0, 0.0, -0.28);
+        Vec3 east = center.add(0.28, 0.0, 0.0);
+        Vec3 south = center.add(0.0, 0.0, 0.28);
+        Vec3 west = center.add(-0.28, 0.0, 0.0);
+        Gizmos.rect(north, east, south, west, style);
     }
 
     /**

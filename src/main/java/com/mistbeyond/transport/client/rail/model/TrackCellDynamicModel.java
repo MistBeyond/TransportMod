@@ -55,6 +55,8 @@ public class TrackCellDynamicModel implements CustomUnbakedBlockStateModel {
 
     private static final Material RAIL_MATERIAL = new Material(Identifier.withDefaultNamespace("block/iron_block"));
     private static final Material SLEEPER_MATERIAL = new Material(Identifier.withDefaultNamespace("block/spruce_planks"));
+    private static final Material SIGNAL_BLOCK_MATERIAL = new Material(Identifier.withDefaultNamespace("block/redstone_block"));
+    private static final Material SIGNAL_PATH_MATERIAL = new Material(Identifier.withDefaultNamespace("block/lapis_block"));
     private static final ModelDebugName DEBUG_NAME = () -> Ids.MOD_ID + ":track_cell";
 
     /**
@@ -105,7 +107,9 @@ public class TrackCellDynamicModel implements CustomUnbakedBlockStateModel {
     public BlockStateModel bake(ModelBaker baker) {
         Material.Baked rail = baker.materials().get(RAIL_MATERIAL, DEBUG_NAME);
         Material.Baked sleeper = baker.materials().get(SLEEPER_MATERIAL, DEBUG_NAME);
-        return new Baked(rail, sleeper, baker);
+        Material.Baked signalBlock = baker.materials().get(SIGNAL_BLOCK_MATERIAL, DEBUG_NAME);
+        Material.Baked signalPath = baker.materials().get(SIGNAL_PATH_MATERIAL, DEBUG_NAME);
+        return new Baked(rail, sleeper, signalBlock, signalPath, baker);
     }
 
     /**
@@ -113,7 +117,8 @@ public class TrackCellDynamicModel implements CustomUnbakedBlockStateModel {
      * (thread-safe) so baking quads on the meshing threads is safe. The only per-position state enters through the
      * {@code collectParts} level parameter on the meshing thread.
      */
-    private record Baked(Material.Baked rail, Material.Baked sleeper, ModelBaker baker) implements BlockStateModel {
+    private record Baked(Material.Baked rail, Material.Baked sleeper, Material.Baked signalBlock,
+                         Material.Baked signalPath, ModelBaker baker) implements BlockStateModel {
         @Override
         public void collectParts(BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random,
                                  List<BlockStateModelPart> parts) {
@@ -121,6 +126,10 @@ public class TrackCellDynamicModel implements CustomUnbakedBlockStateModel {
             if (elements.isEmpty()) {
                 return;
             }
+            // Batch quads by texture to preserve material correctness; placeholder signal textures use distinct materials.
+            // For simplicity, we bake all quads with per-element material selection but still return a single part holding
+            // all quads: the part's particleMaterial is rail, but actual quads carry their own material via the baked quad's sprite.
+            // NeoForge's quad baking embeds the sprite, so using a single part is acceptable for this MVP.
             parts.add(new BakedPart(bakeQuads(elements), rail));
         }
 
@@ -158,7 +167,12 @@ public class TrackCellDynamicModel implements CustomUnbakedBlockStateModel {
         private List<BakedQuad> bakeQuads(List<TrackCellGeometry.Element> elements) {
             List<BakedQuad> quads = new ArrayList<>(elements.size() * 6);
             for (TrackCellGeometry.Element element : elements) {
-                Material.Baked material = "sleeper".equals(element.texture()) ? sleeper : rail;
+                Material.Baked material = switch (element.texture()) {
+                    case "sleeper" -> sleeper;
+                    case "signal_block" -> signalBlock;
+                    case "signal_path" -> signalPath;
+                    default -> rail;
+                };
                 Vector3f from = new Vector3f(element.fromX(), element.fromY(), element.fromZ());
                 Vector3f to = new Vector3f(element.toX(), element.toY(), element.toZ());
                 ModelState state = modelState(element.rotationDegrees());

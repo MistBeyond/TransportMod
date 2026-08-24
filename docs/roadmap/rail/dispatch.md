@@ -16,6 +16,8 @@ and manual driving compatible. Signal state semantics live in `docs/roadmap/rail
 - Routes are locked at departure; ordinary sections along a route are reserved and released step by step, while a
   junction's conflict path (guarded by a path signal) is held as a whole and released after the train's tail exits the
   junction. Signal semantics live in `docs/roadmap/rail/sections.md`.
+- When multiple automatic trains compete for the same conflict path, the reservation grant follows first-come-first-
+  served order by request arrival (see `docs/roadmap/rail/sections.md`).
 - Automatic schedules use explicit `ONE_WAY` or `LOOP` types and ordered generic stops.
 - Timetable stops reference `RailStationId`; they do not reference raw track graph nodes.
 - Schedules are player-started, persisted, editable while running, and reject empty or single-stop lists.
@@ -49,4 +51,5 @@ and manual driving compatible. Signal state semantics live in `docs/roadmap/rail
 
 ## Open Questions
 
-- How dispatch priority and schedules are defined.
+- How general dispatch priority (beyond the first-come-first-served signal-grant arbitration) and schedules are
+  defined.

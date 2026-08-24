@@ -14,9 +14,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Client-bound payload carrying the resolved RED/GREEN state of every rail signal, broadcast by the server so the
- * client F3 debug overlay can color signal markers. The state itself is resolved server-side from dispatch
- * reservations and manual claims (see {@link SignalStateResolver}); this payload is only the transport view.
+ * Client-bound payload carrying the resolved RED/GREEN aspect plus ERROR health indicator of every rail signal,
+ * broadcast by the server so the client F3 debug overlay can color signal markers. The state itself is resolved
+ * server-side from dispatch reservations and manual claims (see {@link SignalStateResolver}); this payload is only
+ * the transport view.
  */
 public record RailSignalsPayload(List<SignalState> states) implements CustomPacketPayload {
     public static final Type<RailSignalsPayload> TYPE =
@@ -39,6 +40,7 @@ public record RailSignalsPayload(List<SignalState> states) implements CustomPack
         for (SignalState state : payload.states()) {
             buf.writeUtf(state.id().value());
             buf.writeByte(state.aspect().ordinal());
+            buf.writeBoolean(state.error());
         }
     }
 
@@ -48,7 +50,8 @@ public record RailSignalsPayload(List<SignalState> states) implements CustomPack
         for (int i = 0; i < size; i++) {
             SignalId id = new SignalId(buf.readUtf());
             SignalAspect aspect = SignalAspect.values()[buf.readByte()];
-            states.add(new SignalState(id, aspect));
+            boolean error = buf.readBoolean();
+            states.add(new SignalState(id, aspect, error));
         }
         return new RailSignalsPayload(states);
     }

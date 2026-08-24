@@ -7,6 +7,10 @@ Date: 2026-08-17
 Revised: 2026-08-17 — Path-signal placement refined by ADR 0008: instead of "the junction-entrance track cell", a path
 signal may be placed on any cell of an approach chain whose facing side eventually reaches a routing node.
 
+Revised: 2026-08-20 — Tail computation is pinned by ADR 0010: a train's tail has exited the junction when the set of
+cells its body occupies no longer intersects the conflict path, then the whole reservation is released. Per-segment
+partial release remains future work.
+
 ## Context
 
 ADR 0004 and `docs/roadmap/rail/runtime-contract.md` established path signals as directional junction-entrance signals

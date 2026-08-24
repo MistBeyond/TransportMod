@@ -11,27 +11,34 @@ import java.util.Map;
 
 /**
  * Client-side cache of the latest signal states received from the server (see {@code RailSignalsPayload}). The F3
- * debug overlay reads it to color signal markers; the value is swapped atomically so concurrent reads are safe.
+ * debug overlay reads it to color signal markers and report ERROR indicators; the value is swapped atomically so
+ * concurrent reads are safe.
  */
 public class RailSignalsCache {
-    private static volatile Map<SignalId, SignalAspect> aspects = Map.of();
+    private static volatile Map<SignalId, SignalState> states = Map.of();
 
     private RailSignalsCache() {
     }
 
-    public static void update(List<SignalState> states) {
-        Map<SignalId, SignalAspect> map = new HashMap<>();
-        for (SignalState state : states) {
-            map.put(state.id(), state.aspect());
+    public static void update(List<SignalState> received) {
+        Map<SignalId, SignalState> map = new HashMap<>();
+        for (SignalState state : received) {
+            map.put(state.id(), state);
         }
-        aspects = Map.copyOf(map);
+        states = Map.copyOf(map);
     }
 
     public static void clear() {
-        aspects = Map.of();
+        states = Map.of();
     }
 
     public static @Nullable SignalAspect aspectOf(SignalId id) {
-        return aspects.get(id);
+        SignalState state = states.get(id);
+        return state == null ? null : state.aspect();
+    }
+
+    public static boolean errorOf(SignalId id) {
+        SignalState state = states.get(id);
+        return state != null && state.error();
     }
 }

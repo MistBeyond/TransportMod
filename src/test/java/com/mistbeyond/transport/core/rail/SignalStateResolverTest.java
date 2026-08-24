@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SignalStateResolverTest {
     private static final SignalId SIGNAL = new SignalId("signal");
@@ -69,18 +71,83 @@ class SignalStateResolverTest {
         assertEquals(SignalAspect.RED, claimAndResolve(graph, sectionOn(graph, "e").id()));
     }
 
+    @Test
+    void blockSignalWithoutTrackOnFacingSideIsErrorAndRed() {
+        // The signal at b faces NORTH, but the line runs east-west: its facing side has no track.
+        RailGraph graph = lineWithSignalAtNode(GridDirection.NORTH);
+
+        SignalState state = signalState(resolveStates(graph));
+        assertEquals(SignalAspect.RED, state.aspect());
+        assertTrue(state.error());
+    }
+
+    @Test
+    void pathSignalOnDeadEndChainIsErrorAndRed() {
+        // s -> n1 -> t: the facing chain dead-ends before any routing node.
+        RailNode s = new RailNode(new RailNodeId("s"), new GridPos(0, 0, 0));
+        RailNode n1 = new RailNode(new RailNodeId("n1"), new GridPos(1, 0, 0));
+        RailNode t = new RailNode(new RailNodeId("t"), new GridPos(2, 0, 0));
+        Signal signal = new Signal(SIGNAL, s.pos(), GridDirection.EAST, SignalType.PATH);
+        RailGraph graph = new RailGraph(
+                Set.of(s, n1, t),
+                Set.of(
+                        edge("s-n1", s, n1, GridDirection.EAST),
+                        edge("n1-t", n1, t, GridDirection.EAST)
+                ),
+                Set.of(signal)
+        );
+
+        SignalState state = signalState(resolveStates(graph));
+        assertEquals(SignalAspect.RED, state.aspect());
+        assertTrue(state.error());
+    }
+
+    @Test
+    void pathSignalOnChainReachingJunctionIsNotError() {
+        // s -> n1 -> j, with j branching to out1 and out2: j is a routing node (degree 3).
+        RailNode s = new RailNode(new RailNodeId("s"), new GridPos(0, 0, 0));
+        RailNode n1 = new RailNode(new RailNodeId("n1"), new GridPos(1, 0, 0));
+        RailNode j = new RailNode(new RailNodeId("j"), new GridPos(2, 0, 0));
+        RailNode out1 = new RailNode(new RailNodeId("out1"), new GridPos(3, 0, 0));
+        RailNode out2 = new RailNode(new RailNodeId("out2"), new GridPos(2, 0, 1));
+        Signal signal = new Signal(SIGNAL, s.pos(), GridDirection.EAST, SignalType.PATH);
+        RailGraph graph = new RailGraph(
+                Set.of(s, n1, j, out1, out2),
+                Set.of(
+                        edge("s-n1", s, n1, GridDirection.EAST),
+                        edge("n1-j", n1, j, GridDirection.EAST),
+                        edge("j-out1", j, out1, GridDirection.EAST),
+                        edge("j-out2", j, out2, GridDirection.SOUTH)
+                ),
+                Set.of(signal)
+        );
+
+        // Nothing is blocked, so the path signal is green and not errored.
+        SignalState state = signalState(resolveStates(graph));
+        assertEquals(SignalAspect.GREEN, state.aspect());
+        assertFalse(state.error());
+    }
+
     private static SignalAspect claimAndResolve(RailGraph graph, RailSectionId sectionId) {
         DispatchService dispatch = new DispatchServiceImpl(graph, new ShortestPathRouter());
         dispatch.claimManual(new RailTrainId("manual"), sectionId);
         return aspect(SignalStateResolver.resolve(graph, dispatch.snapshot()));
     }
 
-    private static SignalAspect aspect(Set<SignalState> states) {
+    private static Set<SignalState> resolveStates(RailGraph graph) {
+        DispatchService dispatch = new DispatchServiceImpl(graph, new ShortestPathRouter());
+        return SignalStateResolver.resolve(graph, dispatch.snapshot());
+    }
+
+    private static SignalState signalState(Set<SignalState> states) {
         return states.stream()
                 .filter(state -> state.id().equals(SIGNAL))
                 .findFirst()
-                .orElseThrow()
-                .aspect();
+                .orElseThrow();
+    }
+
+    private static SignalAspect aspect(Set<SignalState> states) {
+        return signalState(states).aspect();
     }
 
     private static RailSectionView sectionOn(RailGraph graph, String edgeId) {

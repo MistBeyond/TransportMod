@@ -145,8 +145,11 @@ implemented in this documentation-only change.
   admit only one train at a time.
 - Two paths conflict when they share any track segment or cell, or cross at the same routing-node cell at the same
   height; different-height crossings MUST NOT conflict. Only fully disjoint paths MAY be traversed simultaneously.
+- When multiple automatic trains compete for the same conflict path, the reservation grant MUST follow first-come-
+  first-served order by request arrival; losing trains MUST stop, wait, and retry per the wake-up rules.
 - Once a junction route reservation is granted, the related entrance signals MUST turn `RED` until the train's tail
-  exits the junction; the full conflict-path reservation MUST then be released as a whole.
+  exits the junction, defined as the set of cells the train's body occupies no longer intersecting the conflict path;
+  the full conflict-path reservation MUST then be released as a whole.
 - Automatic routes MUST lock at departure and reserve/release sections stepwise.
 - When a red signal or reserved section blocks the route, an automatic train MUST stop and wait, and MUST retry
   advancement after a reservation, occupancy, or signal-state change that may unblock it. Implementations SHOULD use
@@ -231,6 +234,10 @@ train aggregates, and persistence structures live in `core.rail` or `internal.ra
     its normal indication.
 30. Two trains whose paths share a track segment or cell, or a same-height routing-node cell, MUST NOT traverse a
     junction simultaneously; fully disjoint paths MAY do so.
+31. The junction conflict-path reservation MUST be released as a whole exactly when the exiting train's body no longer
+    intersects the conflict path (zero-intersection tail exit); until then the related entrance signals stay `RED`.
+32. When multiple automatic trains compete for the same conflict path, the reservation grant MUST follow the first-
+    come-first-served request order; a losing train MUST stop, wait, and retry when a blocking condition clears.
 
 ## Related Documents
 
@@ -239,3 +246,4 @@ train aggregates, and persistence structures live in `core.rail` or `internal.ra
 - `docs/decisions/0004-rail-signals-dispatch-and-train-aggregate.md`
 - `docs/decisions/0007-rail-path-signals-and-blocked-train-wakeup.md`
 - `docs/decisions/0008-rail-signal-placement-conflict-and-error-state.md`
+- `docs/decisions/0010-rail-signal-runtime-defaults.md`
